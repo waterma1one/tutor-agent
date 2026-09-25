@@ -10,6 +10,12 @@ assignment requires: `gpt-4o-transcribe` for speech-to-text, `gpt-4o` for the tu
 `gpt-4o-mini-tts` for the voice. The browser client is plain TypeScript with Vite, using the
 pipecat client SDK over a websocket.
 
+![A class in progress: slide 2 on the left, live captions with a typed question and Terra's answer on the right, slide thumbnails and controls below](docs/screenshots/class.png)
+
+| Landing | Paused | End of class |
+| --- | --- | --- |
+| ![Landing page with a Start class button](docs/screenshots/landing.png) | ![Lesson paused mid-sentence, with a note that Terra will pick up from the same word](docs/screenshots/paused.png) | ![Summary showing slides covered, questions asked and a transcript download](docs/screenshots/summary.png) |
+
 ## Running it
 
 You need [uv](https://docs.astral.sh/uv/), Node 18 or later, a microphone, and an OpenAI API key.
@@ -176,7 +182,7 @@ default.
 ## Tests
 
 ```shell
-uv run pytest -q                              # 92 tests
+uv run pytest -q                              # 93 tests
 uvx ruff check tutor main.py tests
 uvx ruff format --check tutor main.py tests
 cd frontend && npx -y yarn@1.22.22 build      # tsc + vite build
