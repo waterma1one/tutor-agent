@@ -1,98 +1,641 @@
+/*
+ * Survey-map palette: cool paper, slate ink, contour lines. Moss is Terra's
+ * voice, signal amber is the student's, alarm red is for problems only.
+ */
+:root {
+  --paper: #eaf0f2;
+  --surface: #f6f9fa;
+  --ink: #1d2b3a;
+  --ink-soft: #4a5b6b;
+  --contour: #b7c6ce;
+  --moss: #2f7a57;
+  --signal: #c77a12;
+  --signal-wash: #f0a33a33;
+  --alarm: #c23e36;
+
+  --display: 'Bricolage Grotesque', 'Avenir Next', system-ui, sans-serif;
+  --text: 'Atkinson Hyperlegible', 'Verdana', system-ui, sans-serif;
+
+  --gutter: clamp(16px, 3vw, 32px);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #13202b;
+    --surface: #1a2a37;
+    --ink: #e4ecef;
+    --ink-soft: #9fb1bd;
+    --contour: #2e4250;
+    --moss: #5dbb8a;
+    --signal: #f5b85c;
+    --signal-wash: #f5b85c26;
+    --alarm: #f07a70;
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
 body {
   margin: 0;
-  padding: 20px;
-  font-family: Arial, sans-serif;
-  background-color: #f0f0f0;
+  height: 100%;
 }
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 1.0625rem/1.55 var(--text);
+  -webkit-font-smoothing: antialiased;
 }
 
-.status-bar {
-  display: flex;
-  justify-content: space-between;
+[hidden] {
+  display: none !important;
+}
+
+:focus-visible {
+  outline: 3px solid var(--signal);
+  outline-offset: 3px;
+}
+
+/* ---------- Buttons ---------- */
+
+.button {
+  display: inline-flex;
   align-items: center;
-  padding: 10px;
-  background-color: #fff;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.controls button {
-  padding: 8px 16px;
-  margin-left: 10px;
-  border: none;
-  border-radius: 4px;
+  gap: 0.75rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.7rem 1.5rem;
+  font: 700 1.0625rem/1 var(--text);
   cursor: pointer;
+  transition: background-color 120ms, color 120ms, transform 120ms;
 }
 
-#connect-btn {
-  background-color: #4caf50;
-  color: white;
+.button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
-#disconnect-btn {
-  background-color: #f44336;
-  color: white;
-}
-
-button:disabled {
-  opacity: 0.5;
+.button:disabled {
   cursor: not-allowed;
+  opacity: 0.45;
 }
 
-.main-content {
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
+.button-primary {
+  background: var(--ink);
+  color: var(--paper);
 }
 
-.bot-container {
+.button-primary:hover:not(:disabled) {
+  background: var(--moss);
+  border-color: var(--moss);
+}
+
+.button-quiet {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--contour);
+  padding: 0.5rem 1.1rem;
+  font-size: 0.95rem;
+}
+
+.button-quiet:hover {
+  border-color: var(--ink);
+}
+
+kbd {
+  font: 700 0.75rem/1 var(--text);
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  opacity: 0.7;
+}
+
+/* ---------- Landing ---------- */
+
+.landing {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  padding: var(--gutter);
+  overflow: hidden;
+}
+
+.landing-copy {
+  align-self: center;
+  max-width: 44rem;
+  padding-top: 8vh;
+}
+
+.landing-title {
+  font: 800 clamp(3.2rem, 11vw, 8rem) / 0.9 var(--display);
+  letter-spacing: -0.035em;
+  margin: 0 0 1.5rem;
+}
+
+.landing-lede {
+  font-size: clamp(1.15rem, 2.2vw, 1.4rem);
+  max-width: 34em;
+  margin: 0 0 2rem;
+}
+
+.landing-hint {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  margin: 1.25rem 0 0;
+  max-width: 34em;
+}
+
+.landing-trace {
+  width: calc(100% + 2 * var(--gutter));
+  margin: 4vh calc(-1 * var(--gutter)) 0;
+  height: clamp(110px, 24vh, 220px);
+}
+
+.landing-trace path {
+  fill: none;
+  stroke: var(--moss);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-trace 2.6s cubic-bezier(0.5, 0, 0.2, 1) 0.2s forwards;
+}
+
+@keyframes draw-trace {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---------- Classroom ---------- */
+
+.classroom {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.75rem var(--gutter) var(--gutter);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.topbar-title {
+  font: 700 1.1rem/1 var(--display);
+  margin: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 auto 0 0;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.badge::before {
+  content: '';
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--ink-soft);
+}
+
+.badge[data-tone='tutor']::before {
+  background: var(--moss);
+}
+
+.badge[data-tone='student']::before {
+  background: var(--signal);
+}
+
+.badge[data-tone='paused']::before {
+  background: transparent;
+  border: 2px solid var(--ink);
+  border-radius: 1px;
+}
+
+.badge[data-tone='busy']::before {
+  animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* ---------- Stage ---------- */
+
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(16rem, 1fr);
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.plate {
+  --progress: 0;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--surface);
+  border-radius: 6px;
+  padding: clamp(1.5rem, 4vw, 3.5rem);
   display: flex;
   flex-direction: column;
-  align-items: center;
-}
-
-#bot-video-container {
-  width: 640px;
-  height: 360px;
-  background-color: #e0e0e0;
-  border-radius: 8px;
-  margin: 20px auto;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
   justify-content: center;
 }
 
-#bot-video-container video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* Contour lines, like a relief map, drawn in the corner of every slide. */
+.plate::before {
+  content: '';
+  position: absolute;
+  inset: auto -14% -38% auto;
+  width: 42%;
+  aspect-ratio: 1;
+  border-radius: 46% 54% 50% 50%;
+  box-shadow:
+    0 0 0 1.5rem var(--surface),
+    0 0 0 1.6rem var(--contour),
+    0 0 0 3.2rem var(--surface),
+    0 0 0 3.3rem var(--contour),
+    0 0 0 4.9rem var(--surface),
+    0 0 0 5rem var(--contour),
+    0 0 0 6.6rem var(--surface),
+    0 0 0 6.7rem var(--contour);
+  border: 1px solid var(--contour);
+  opacity: 0.6;
+  pointer-events: none;
 }
 
-.debug-panel {
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 20px;
+/* How far through the lesson Terra is. */
+.plate::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  height: 5px;
+  width: calc(var(--progress) * 100%);
+  background: var(--moss);
+  transition: width 600ms ease;
 }
 
-.debug-panel h3 {
-  margin: 0 0 10px 0;
-  font-size: 16px;
-  font-weight: bold;
+.plate > * {
+  position: relative;
 }
 
-#debug-log {
-  height: 500px;
-  overflow-y: auto;
-  background-color: #f8f8f8;
-  padding: 10px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 12px;
+.plate-count {
+  margin: 0 0 0.75rem;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.plate-title {
+  font: 800 clamp(2rem, 4.6vw, 3.8rem) / 1 var(--display);
+  letter-spacing: -0.025em;
+  margin: 0 0 1.75rem;
+  max-width: 16em;
+  text-wrap: balance;
+}
+
+.plate-bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.8rem;
+  max-width: 36em;
+  font-size: clamp(1.1rem, 1.8vw, 1.4rem);
   line-height: 1.4;
+}
+
+.plate-bullets li {
+  display: grid;
+  grid-template-columns: 1.4rem 1fr;
+}
+
+.plate-bullets li::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.5em;
+  border: 2px solid var(--moss);
+  border-radius: 50%;
+}
+
+.plate[data-kind='waiting'] .plate-title {
+  color: var(--ink-soft);
+}
+
+.plate-enter > * {
+  animation: plate-in 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.plate-enter .plate-title {
+  animation-delay: 60ms;
+}
+
+.plate-enter .plate-bullets {
+  animation-delay: 140ms;
+}
+
+@keyframes plate-in {
+  from {
+    opacity: 0;
+    transform: translateX(1.5rem);
+  }
+}
+
+/* ---------- Captions ---------- */
+
+.captions {
+  overflow-y: auto;
+  border-left: 1px solid var(--contour);
+  padding: 0.5rem 0 0.5rem 1.25rem;
+  scroll-behavior: smooth;
+}
+
+.captions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.captions-list:empty::before {
+  content: 'What Terra and you say shows up here.';
+  color: var(--ink-soft);
+}
+
+.caption {
+  display: grid;
+  gap: 0.15rem;
+  opacity: 0.55;
+  transition: opacity 300ms;
+}
+
+.caption-latest {
+  opacity: 1;
+}
+
+.caption-speaker {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--moss);
+}
+
+.caption-student {
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--signal);
+}
+
+.caption-student .caption-speaker {
+  color: var(--signal);
+}
+
+.caption-text {
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+/* ---------- Seismograph ---------- */
+
+.seismo {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  border-top: 1px solid var(--contour);
+  border-bottom: 1px solid var(--contour);
+}
+
+.seismo-canvas {
+  width: 100%;
+  height: 84px;
+  display: block;
+}
+
+.seismo-legend {
+  display: grid;
+  gap: 1.1rem;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.legend-tutor {
+  color: var(--moss);
+}
+
+.legend-student {
+  color: var(--signal);
+}
+
+/* ---------- Dock ---------- */
+
+.dock {
+  display: flex;
+  align-items: stretch;
+  gap: 1rem;
+}
+
+.thumbs {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(7.5rem, 1fr);
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 4px;
+}
+
+.thumb {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  background: transparent;
+  border: 1px solid var(--contour);
+  border-radius: 4px;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms, background-color 120ms;
+}
+
+.thumb:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+.thumb:disabled {
+  cursor: default;
+}
+
+.thumb:disabled:not([aria-current]) {
+  opacity: 0.6;
+}
+
+.thumb-number {
+  font: 800 1.3rem/1 var(--display);
+  color: var(--ink-soft);
+}
+
+.thumb-title {
+  font-size: 0.8rem;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.thumb-done .thumb-number {
+  color: var(--moss);
+}
+
+.thumb[aria-current] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.thumb[aria-current] .thumb-number {
+  color: var(--paper);
+}
+
+.thumb-pending {
+  border-color: var(--signal);
+  background: var(--signal-wash);
+}
+
+.pause {
+  flex: none;
+  width: 11rem;
+  justify-content: center;
+  font-size: 1.15rem;
+}
+
+.pause[aria-pressed='true'] {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: #1d2b3a;
+}
+
+/* ---------- Paused notice ---------- */
+
+/* Sits on the frozen voice strip, leaving the slide readable while paused. */
+.paused-veil {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: color-mix(in srgb, var(--paper) 80%, transparent);
+  color: var(--ink);
+  font: 700 clamp(1rem, 2vw, 1.25rem) / 1.3 var(--display);
+  cursor: pointer;
+}
+
+/* ---------- Ended ---------- */
+
+.ended {
+  min-height: 100%;
+  display: grid;
+  align-content: center;
+  padding: var(--gutter);
+  max-width: 46rem;
+}
+
+.ended-title {
+  font: 800 clamp(2.6rem, 8vw, 5.5rem) / 0.95 var(--display);
+  letter-spacing: -0.03em;
+  margin: 0 0 1.25rem;
+}
+
+.ended-summary {
+  font-size: 1.3rem;
+  margin: 0 0 2rem;
+}
+
+.ended .button {
+  justify-self: start;
+}
+
+/* ---------- Toasts ---------- */
+
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: var(--gutter);
+  transform: translateX(-50%);
+  display: grid;
+  gap: 0.5rem;
+  width: min(32rem, calc(100% - 2 * var(--gutter)));
+  pointer-events: none;
+}
+
+.toast {
+  margin: 0;
+  padding: 0.85rem 1.1rem;
+  background: var(--ink);
+  color: var(--paper);
+  border-left: 5px solid var(--alarm);
+  border-radius: 4px;
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 760px) {
+  .classroom {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .stage {
+    grid-template-columns: 1fr;
+  }
+
+  .captions {
+    border-left: 0;
+    border-top: 1px solid var(--contour);
+    padding: 1rem 0 0;
+    max-height: 14rem;
+  }
+
+  .dock {
+    flex-direction: column-reverse;
+  }
+
+  .pause {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }

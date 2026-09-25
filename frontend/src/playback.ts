@@ -60,3 +60,40 @@ export async function resumePlayback(client: PipecatClient): Promise<boolean> {
     await context.resume();
     return true;
 }
+
+/**
+ * Drops the tutor's queued speech here, for a jump the student asked for.
+ *
+ * The transport never interrupts its own player, and the player's `interrupt`
+ * blocks the track id every chunk shares ("default"), so all later speech
+ * would be dropped too. That block is useful for a moment: it discards the
+ * old speech still in flight from the server. Call `releaseInterruption` once
+ * the new speech starts.
+ */
+export async function interruptPlayback(client: PipecatClient): Promise<void> {
+    await player(client)?.interrupt();
+}
+
+export function releaseInterruption(client: PipecatClient): void {
+    const p = player(client);
+    if (p?.interruptedTrackIds) p.interruptedTrackIds = {};
+}
+
+let levelBuffer: Float32Array<ArrayBuffer> | null = null;
+
+/** How loud the tutor's speech playing here is right now, from 0 to 1. */
+export function tutorLevel(client: PipecatClient): number {
+    const analyser = player(client)?.analyser;
+    if (!(analyser instanceof AnalyserNode) || player(client)?.stream == null) return 0;
+    return rms(analyser);
+}
+
+export function rms(analyser: AnalyserNode): number {
+    if (!levelBuffer || levelBuffer.length !== analyser.fftSize) {
+        levelBuffer = new Float32Array(analyser.fftSize);
+    }
+    analyser.getFloatTimeDomainData(levelBuffer);
+    let sum = 0;
+    for (const sample of levelBuffer) sum += sample * sample;
+    return Math.min(1, Math.sqrt(sum / levelBuffer.length) * 4);
+}

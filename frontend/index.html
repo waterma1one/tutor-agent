@@ -3,29 +3,80 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Chatbot</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>Natural Disasters with Terra</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap"
+    />
+    <link rel="stylesheet" href="./src/style.css" />
   </head>
 
   <body>
-    <div class="container">
-      <div class="status-bar">
-        <div class="status">Transport: <span id="connection-status">Disconnected</span></div>
-        <div class="controls">
-          <button id="connect-btn">Connect</button>
-          <button id="disconnect-btn" disabled>Disconnect</button>
-          <button id="pause-btn" disabled>Pause</button>
-        </div>
+    <main id="landing" class="landing">
+      <div class="landing-copy">
+        <h1 class="landing-title">Natural disasters</h1>
+        <p class="landing-lede">
+          A spoken lesson with Terra, your tutor. Eight slides, about ten minutes.
+          Ask a question whenever you like: just start talking.
+        </p>
+        <button id="start-btn" class="button button-primary" type="button">Start class</button>
+        <p class="landing-hint">
+          Terra listens through your microphone. Wear headphones, or the speakers will cut the lesson off.
+        </p>
       </div>
+      <svg class="landing-trace" viewBox="0 0 600 160" aria-hidden="true" preserveAspectRatio="none">
+        <path id="landing-trace-path" />
+      </svg>
+    </main>
 
-      <audio id="bot-audio" autoplay></audio>
+    <div id="classroom" class="classroom" hidden>
+      <header class="topbar">
+        <p class="topbar-title">Natural disasters</p>
+        <p id="mode-badge" class="badge" role="status"></p>
+        <button id="leave-btn" class="button button-quiet" type="button">Leave class</button>
+      </header>
 
-      <div class="debug-panel">
-        <h3>Debug Info</h3>
-        <div id="debug-log"></div>
-      </div>
+      <section class="stage">
+        <article id="slide" class="plate" aria-live="polite">
+          <p class="plate-count"></p>
+          <h2 class="plate-title"></h2>
+          <ul class="plate-bullets"></ul>
+        </article>
+        <aside class="captions" aria-label="Captions">
+          <ol id="captions" class="captions-list"></ol>
+        </aside>
+      </section>
+
+      <section class="seismo" aria-label="Who is talking">
+        <canvas id="seismo" class="seismo-canvas" aria-hidden="true"></canvas>
+        <p class="seismo-legend">
+          <span class="legend-tutor">Terra</span>
+          <span class="legend-student">You</span>
+        </p>
+        <button id="paused-veil" class="paused-veil" type="button" hidden>
+          Paused. Terra will pick up from the same word. Press Space or click here to resume.
+        </button>
+      </section>
+
+      <footer class="dock">
+        <nav id="thumbs" class="thumbs" aria-label="Slides"></nav>
+        <button id="pause-btn" class="button button-primary pause" type="button" disabled>
+          <span class="pause-label">Pause</span><kbd>Space</kbd>
+        </button>
+      </footer>
     </div>
 
-    <script type="module" src="./app.ts"></script>
-    <link rel="stylesheet" href="./style.css" />
+    <main id="ended" class="ended" hidden>
+      <h1 class="ended-title">Class is over</h1>
+      <p id="ended-summary" class="ended-summary"></p>
+      <button id="again-btn" class="button button-primary" type="button">Start a new class</button>
+    </main>
+
+    <div id="toasts" class="toasts" role="alert" aria-live="assertive"></div>
+
+    <script type="module" src="./src/main.ts"></script>
   </body>
 </html>
