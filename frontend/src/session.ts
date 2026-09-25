@@ -75,6 +75,9 @@ export class Session {
                 onDisconnected: () => this.finish(),
                 onServerMessage: (data) => {
                     if (data?.type === 'lesson-state') this.applyLessonState(data);
+                    // Sent by the server just as each sentence starts playing; the
+                    // standard bot-tts-text only arrives once the sentence has ended.
+                    else if (data?.type === 'caption') this.appendTutorText(data.text);
                 },
                 onBotStartedSpeaking: () => {
                     // New speech has started, so the old speech a jump cut off
@@ -91,7 +94,6 @@ export class Session {
                 onBotLlmStarted: () => {
                     this.tutorLine = null;
                 },
-                onBotTtsText: (data) => this.appendTutorText(data.text),
                 onUserTranscript: (data) => {
                     if (data.final && data.text.trim()) this.addStudentLine(data.text.trim());
                 },

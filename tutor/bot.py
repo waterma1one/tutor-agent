@@ -18,10 +18,10 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.serializers.protobuf import ProtobufFrameSerializer
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.openai.stt import OpenAIRealtimeSTTService
-from pipecat.services.openai.tts import OpenAITTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPIWebsocketTransport
 
 from tutor import prompts
+from tutor.captions import CaptionedTTSService
 from tutor.controller import LessonController
 from tutor.pause import MuteWhilePaused, PauseGate
 from tutor.slides import DECK
@@ -65,7 +65,7 @@ async def run_bot(websocket) -> None:
     )
     stt = OpenAIRealtimeSTTService(api_key=api_key, model="gpt-4o-transcribe")
     llm = OpenAILLMService(api_key=api_key, model=LLM_MODEL)
-    tts = OpenAITTSService(
+    tts = CaptionedTTSService(
         api_key=api_key,
         model="gpt-4o-mini-tts",
         voice=TTS_VOICE,
