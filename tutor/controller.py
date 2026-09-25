@@ -147,11 +147,13 @@ class LessonController(BaseObserver):
 
         The slide is presented only once the interruption has passed through the
         pipeline, so the interruption cannot cancel the new slide's response.
-        The reply comes then; a refused jump is answered straight away.
+        The reply comes then; a refused jump is answered straight away. Only one
+        such request runs at a time; another arriving before it is carried out
+        is refused.
         """
         if self._ended:
             return
-        if self.presentation.paused or not 1 <= number <= len(self.deck):
+        if self._requests_blocked() or not 1 <= number <= len(self.deck):
             logger.info(f"Refused jump to slide {number}")
             await self._notify(self.snapshot(request))
             return
@@ -161,12 +163,13 @@ class LessonController(BaseObserver):
         """The student typed a question: cut the tutor off and put it to them.
 
         It is handled like a spoken question, so once answered the tutor bridges
-        back to the slide. Blank questions and questions while paused are refused.
+        back to the slide. Blank questions, questions while paused and questions
+        while another request is pending are refused.
         """
         if self._ended:
             return
         question = text.strip()[: self.MAX_QUESTION_CHARS] if isinstance(text, str) else ""
-        if self.presentation.paused or not question:
+        if self._requests_blocked() or not question:
             logger.info("Refused typed question")
             await self._notify(self.snapshot(request))
             return
@@ -256,6 +259,10 @@ class LessonController(BaseObserver):
             or self._awaiting_new_speech
             or self._tutor_audible()
         )
+
+    def _requests_blocked(self) -> bool:
+        """True while paused or while a UI request waits for its interruption."""
+        return self.presentation.paused or self._after_interruption is not None
 
     async def _interrupt_then(self, action: Callable[[], Awaitable[None]]) -> None:
         # Acting only once the interruption is observed keeps it from

@@ -551,3 +551,33 @@ async def test_long_typed_question_is_cut_to_the_limit():
     await h.controller.ask("a" * 5000)
     await h.push(InterruptionFrame())
     assert len(h.queued[-1].messages[0]["content"]) == LessonController.MAX_QUESTION_CHARS
+
+
+async def test_jump_while_a_question_is_pending_is_refused():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.ask("Why do volcanoes erupt?", request="q1")
+    await h.controller.request_slide(4, request="g1")
+    assert h.notes[-1]["request"] == "g1"
+    assert h.notes[-1]["slide"] == 1
+    assert sum(isinstance(f, InterruptionWorkerFrame) for f in h.queued) == 1
+
+    await h.push(InterruptionFrame())
+    assert isinstance(h.queued[-1], LLMMessagesAppendFrame)
+    assert h.notes[-1]["request"] == "q1"
+    assert h.controller.presentation.slide == 1
+
+
+async def test_question_while_a_jump_is_pending_is_refused():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.request_slide(4, request="g1")
+    await h.controller.ask("Why?", request="q1")
+    assert h.notes[-1]["request"] == "q1"
+    assert sum(isinstance(f, InterruptionWorkerFrame) for f in h.queued) == 1
+
+    await h.push(InterruptionFrame())
+    assert h.last_direction().startswith(f"{STAGE_MARKER} Present slide 4")
+    assert h.notes[-1]["request"] == "g1"
