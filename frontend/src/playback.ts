@@ -85,15 +85,22 @@ let levelBuffer: Float32Array<ArrayBuffer> | null = null;
 export function tutorLevel(client: PipecatClient): number {
     const analyser = player(client)?.analyser;
     if (!(analyser instanceof AnalyserNode) || player(client)?.stream == null) return 0;
-    return rms(analyser);
+    return loudness(analyser);
 }
 
-export function rms(analyser: AnalyserNode): number {
+// Speech sits roughly between -45 and -15 dBFS, so a linear RMS barely moves the trace.
+// Map that range onto 0..1 on a decibel scale instead.
+const QUIET_DB = -55;
+const LOUD_DB = -15;
+
+/** Loudness of the analyser's current window, from 0 (quiet) to 1 (loud). */
+export function loudness(analyser: AnalyserNode): number {
     if (!levelBuffer || levelBuffer.length !== analyser.fftSize) {
         levelBuffer = new Float32Array(analyser.fftSize);
     }
     analyser.getFloatTimeDomainData(levelBuffer);
     let sum = 0;
     for (const sample of levelBuffer) sum += sample * sample;
-    return Math.min(1, Math.sqrt(sum / levelBuffer.length) * 4);
+    const db = 10 * Math.log10(sum / levelBuffer.length + 1e-12);
+    return Math.min(1, Math.max(0, (db - QUIET_DB) / (LOUD_DB - QUIET_DB)));
 }

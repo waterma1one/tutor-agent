@@ -1,4 +1,4 @@
-import { rms } from './playback';
+import { loudness } from './playback';
 
 /** Measures the student's microphone from its public media track. */
 export class MicLevel {
@@ -25,6 +25,6 @@ export class MicLevel {
     }
 
     level(): number {
-        return this.analyser ? rms(this.analyser) : 0;
+        return this.analyser ? loudness(this.analyser) : 0;
     }
 }
