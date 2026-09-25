@@ -1,4 +1,4 @@
-import type { State, Store } from '../store';
+import type { Phase, State, Store } from '../store';
 import { downloadTranscript } from '../transcript';
 import { byId, element } from './dom';
 
@@ -25,7 +25,23 @@ export function mountScreens(store: Store): void {
         startButton.setAttribute('aria-busy', String(connecting));
 
         if (state.phase === 'ended' && previous.phase !== 'ended') renderSummary(state);
+        if (state.phase !== previous.phase) moveFocus(state.phase);
     });
+}
+
+/**
+ * The control that had focus usually disappears with its screen, which would
+ * drop keyboard and screen reader users back at the top of the page.
+ */
+function moveFocus(phase: Phase): void {
+    const target: Record<Phase, string | null> = {
+        landing: 'start-btn',
+        connecting: null,
+        live: 'classroom-title',
+        ended: 'ended-title',
+    };
+    const id = target[phase];
+    if (id) byId(id).focus();
 }
 
 function renderSummary(state: State): void {

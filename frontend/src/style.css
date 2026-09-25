@@ -11,7 +11,11 @@
   --moss: #2f7a57;
   --signal: #c77a12;
   --signal-wash: #f0a33a33;
+  /* Signal amber dark enough for text and focus rings on paper (4.5:1). */
+  --signal-text: #9c5e0a;
   --alarm: #c23e36;
+  /* Text field outlines need 3:1 against the page; contour lines do not. */
+  --field: #768894;
 
   --display: 'Bricolage Grotesque', 'Avenir Next', system-ui, sans-serif;
   --text: 'Atkinson Hyperlegible', 'Verdana', system-ui, sans-serif;
@@ -30,7 +34,9 @@
     --moss: #5dbb8a;
     --signal: #f5b85c;
     --signal-wash: #f5b85c26;
+    --signal-text: #f5b85c;
     --alarm: #f07a70;
+    --field: #6b8494;
     color-scheme: dark;
   }
 }
@@ -59,8 +65,13 @@ body {
 }
 
 :focus-visible {
-  outline: 3px solid var(--signal);
+  outline: 3px solid var(--signal-text);
   outline-offset: 3px;
+}
+
+/* Headings take focus only so screen changes land somewhere sensible. */
+[tabindex='-1']:focus {
+  outline: none;
 }
 
 /* ---------- Buttons ---------- */
@@ -436,12 +447,13 @@ kbd {
 .caption {
   display: grid;
   gap: 0.15rem;
-  opacity: 0.55;
-  transition: opacity 300ms;
+  /* Older lines step back by colour, not opacity, so they keep 4.5:1 contrast. */
+  color: var(--ink-soft);
+  transition: color 300ms;
 }
 
 .caption-latest {
-  opacity: 1;
+  color: var(--ink);
 }
 
 .caption-speaker {
@@ -456,7 +468,7 @@ kbd {
 }
 
 .caption-student .caption-speaker {
-  color: var(--signal);
+  color: var(--signal-text);
 }
 
 .caption-text {
@@ -475,7 +487,7 @@ kbd {
   flex: 1;
   min-width: 0;
   padding: 0.6rem 1rem;
-  border: 2px solid var(--contour);
+  border: 2px solid var(--field);
   border-radius: 999px;
   background: var(--surface);
   color: var(--ink);
@@ -534,7 +546,7 @@ kbd {
 }
 
 .legend-student {
-  color: var(--signal);
+  color: var(--signal-text);
 }
 
 .legend-muted {

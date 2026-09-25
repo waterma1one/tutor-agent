@@ -34,7 +34,7 @@
 
     <div id="classroom" class="classroom" hidden>
       <header class="topbar">
-        <p class="topbar-title">Natural disasters</p>
+        <h1 id="classroom-title" class="topbar-title" tabindex="-1">Natural disasters</h1>
         <p id="mode-badge" class="badge" role="status"></p>
         <div class="topbar-actions">
           <button id="keys-btn" class="button button-quiet keys-btn" type="button" aria-haspopup="dialog">
@@ -52,7 +52,9 @@
         </article>
         <aside class="captions" aria-label="Captions">
           <div class="captions-scroll">
-            <ol id="captions" class="captions-list"></ol>
+            <!-- A log, but not announced: Terra's voice already says every line, and a
+                 screen reader reading captions aloud would talk over her. -->
+            <ol id="captions" class="captions-list" role="log" aria-live="off"></ol>
           </div>
           <form id="ask-form" class="ask">
             <label class="visually-hidden" for="ask-input">Type a question for Terra</label>
@@ -110,7 +112,7 @@
     </dialog>
 
     <main id="ended" class="ended" hidden>
-      <h1 class="ended-title">Class is over</h1>
+      <h1 id="ended-title" class="ended-title" tabindex="-1">Class is over</h1>
       <p id="ended-summary" class="ended-summary"></p>
       <dl class="ended-stats">
         <div class="stat">
