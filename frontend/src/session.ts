@@ -48,6 +48,11 @@ export class Session {
     /** The jump request still waiting for its reply, and its slide. */
     private pendingJump: { id: string; slide: number } | null = null;
     private pendingQuestion: string | null = null;
+    /**
+     * The ask or jump whose reply ends the cut-off speech's captions. Captions
+     * sent before the server acted on it arrive first; drop them until then.
+     */
+    private captionsHeldFor: string | null = null;
     private nextLine = 1;
     /** The tutor line captions are appending to; a new one starts per reply. */
     private tutorLine: Line | null = null;
@@ -84,7 +89,7 @@ export class Session {
                     if (data?.type === 'lesson-state') this.applyLessonState(data);
                     // Sent just ahead of each sentence's audio and held until it plays;
                     // the standard bot-tts-text only arrives once the sentence has ended.
-                    else if (data?.type === 'caption') this.captions.add(data.text);
+                    else if (data?.type === 'caption') this.onCaption(data.text);
                 },
                 onBotStartedSpeaking: () => {
                     // New speech has started, so the old speech a jump cut off
@@ -174,6 +179,7 @@ export class Session {
         this.captions.clear();
         const id = this.send('go-to-slide', { slide });
         this.pendingJump = id ? { id, slide } : null;
+        this.captionsHeldFor = id;
         if (!id) this.store.set({ pendingSlide: null });
     }
 
@@ -187,6 +193,7 @@ export class Session {
         this.pendingQuestion = id;
         this.addStudentLine(text);
         this.captions.clear();
+        this.captionsHeldFor = id;
         void interruptPlayback(client);
         return true;
     }
@@ -229,6 +236,8 @@ export class Session {
             patch.paused = state.paused;
         }
 
+        if (state.request === this.captionsHeldFor) this.captionsHeldFor = null;
+
         if (this.pendingQuestion && state.request === this.pendingQuestion) {
             // The server only turns a question down while paused.
             if (state.paused && this.client) {
@@ -248,6 +257,10 @@ export class Session {
             patch.pendingSlide = null;
         }
         this.store.set(patch);
+    }
+
+    private onCaption(text: string): void {
+        if (!this.captionsHeldFor) this.captions.add(text);
     }
 
     /** Brings the browser's audio and mic in line with the server's pause state. */
@@ -305,6 +318,7 @@ export class Session {
         this.pendingPause = null;
         this.pendingJump = null;
         this.pendingQuestion = null;
+        this.captionsHeldFor = null;
         const wasLive = this.store.get().phase === 'live';
         this.store.set({
             phase: wasLive ? 'ended' : this.store.get().phase,
