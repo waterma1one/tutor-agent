@@ -79,7 +79,9 @@ export function releaseInterruption(client: PipecatClient): void {
     if (p?.interruptedTrackIds) p.interruptedTrackIds = {};
 }
 
-let levelBuffer: Float32Array<ArrayBuffer> | null = null;
+// One sample buffer per analyser: the tutor's and the mic's differ in size,
+// and sharing one would reallocate it on every frame.
+const levelBuffers = new WeakMap<AnalyserNode, Float32Array<ArrayBuffer>>();
 
 /** How loud the tutor's speech playing here is right now, from 0 to 1. */
 export function tutorLevel(client: PipecatClient): number {
@@ -96,8 +98,10 @@ const LOUD_DB = -5;
 
 /** Loudness of the analyser's current window, from 0 (quiet) to 1 (loud). */
 export function loudness(analyser: AnalyserNode): number {
+    let levelBuffer = levelBuffers.get(analyser);
     if (!levelBuffer || levelBuffer.length !== analyser.fftSize) {
         levelBuffer = new Float32Array(analyser.fftSize);
+        levelBuffers.set(analyser, levelBuffer);
     }
     analyser.getFloatTimeDomainData(levelBuffer);
     let sum = 0;
