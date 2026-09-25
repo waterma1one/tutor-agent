@@ -3,9 +3,10 @@ import { byId } from './dom';
 
 /**
  * The type-a-question box, for students without a mic or too shy to use it.
- * `ask` returns whether the question was sent; the text stays put if not.
+ * `ask` resolves with whether the tutor took the question. The box keeps the
+ * text, locked, until then, and clears only once it was taken.
  */
-export function mountAsk(store: Store, ask: (text: string) => boolean): void {
+export function mountAsk(store: Store, ask: (text: string) => Promise<boolean>): void {
     const form = byId<HTMLFormElement>('ask-form');
     const input = byId<HTMLInputElement>('ask-input');
     const button = byId<HTMLButtonElement>('ask-btn');
@@ -18,11 +19,11 @@ export function mountAsk(store: Store, ask: (text: string) => boolean): void {
     };
 
     input.addEventListener('input', () => sync(store.get()));
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const text = input.value.trim();
         if (!text || !canAsk(store.get())) return;
-        if (ask(text)) {
+        if (await ask(text)) {
             input.value = '';
             sync(store.get());
         }
@@ -35,6 +36,7 @@ function canAsk(state: State): boolean {
         state.phase === 'live' &&
         !state.paused &&
         state.slide !== null &&
-        state.pendingSlide === null
+        state.pendingSlide === null &&
+        !state.pendingQuestion
     );
 }

@@ -42,6 +42,8 @@ export interface State {
     visited: number[];
     /** A slide the student asked for that the tutor has not moved to yet. */
     pendingSlide: number | null;
+    /** A typed question is waiting for the tutor to take it. */
+    pendingQuestion: boolean;
     /** While connecting: waiting for mic permission, then for the tutor. */
     connectStep: 'mic' | 'tutor';
 }
@@ -58,6 +60,7 @@ export const initialState: State = {
     lines: [],
     visited: [],
     pendingSlide: null,
+    pendingQuestion: false,
     connectStep: 'mic',
 };
 

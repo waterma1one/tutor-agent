@@ -26,6 +26,8 @@ interface LessonState {
     paused: boolean;
     /** The id of the client request this state answers, if any. */
     request: string | null;
+    /** The request it answers was turned down. */
+    refused: boolean;
 }
 
 export interface SessionEvents {
@@ -47,7 +49,9 @@ export class Session {
     private pendingPause: string | null = null;
     /** The jump request still waiting for its reply, and its slide. */
     private pendingJump: { id: string; slide: number } | null = null;
-    private pendingQuestion: string | null = null;
+    /** The typed question still waiting for its reply; settled with whether it was taken. */
+    private pendingQuestion: { id: string; text: string; settle: (taken: boolean) => void } | null =
+        null;
     /**
      * The ask or jump whose reply ends the cut-off speech's captions. Captions
      * sent before the server acted on it arrive first; drop them until then.
@@ -183,19 +187,24 @@ export class Session {
         if (!id) this.store.set({ pendingSlide: null });
     }
 
-    /** Puts a typed question to the tutor, cutting off what it is saying. */
-    ask(text: string): boolean {
+    /**
+     * Puts a typed question to the tutor, cutting off what it is saying.
+     * Resolves once the server replies: true if it took the question.
+     */
+    ask(text: string): Promise<boolean> {
         const client = this.client;
         const state = this.store.get();
-        if (!client || state.paused || state.slide === null || this.pendingJump) return false;
+        const busy = this.pendingJump || this.pendingQuestion;
+        if (!client || state.paused || state.slide === null || busy) return Promise.resolve(false);
         const id = this.send('ask', { text });
-        if (!id) return false;
-        this.pendingQuestion = id;
-        this.addStudentLine(text);
+        if (!id) return Promise.resolve(false);
         this.captions.clear();
         this.captionsHeldFor = id;
         void interruptPlayback(client);
-        return true;
+        this.store.set({ pendingQuestion: true });
+        return new Promise((settle) => {
+            this.pendingQuestion = { id, text, settle };
+        });
     }
 
     /** Current voice levels, 0 to 1, for the voice meter. The mic reads 0 while it is off. */
@@ -238,17 +247,26 @@ export class Session {
 
         if (state.request === this.captionsHeldFor) this.captionsHeldFor = null;
 
-        if (this.pendingQuestion && state.request === this.pendingQuestion) {
-            // The server only turns a question down while paused.
-            if (state.paused && this.client) {
-                releaseInterruption(this.client);
-                this.events.onProblem('Your question was not sent because the class is paused.');
-            }
+        if (this.pendingQuestion && state.request === this.pendingQuestion.id) {
+            const { text, settle } = this.pendingQuestion;
             this.pendingQuestion = null;
+            patch.pendingQuestion = false;
+            if (state.refused) {
+                // Nothing new is coming, so stop dropping speech.
+                if (this.client) releaseInterruption(this.client);
+                this.events.onProblem(
+                    state.paused
+                        ? 'Your question was not sent because the class is paused.'
+                        : 'Your question was not sent. Try again in a moment.'
+                );
+            } else {
+                this.addStudentLine(text);
+            }
+            settle(!state.refused);
         }
 
         if (this.pendingJump && state.request === this.pendingJump.id) {
-            if (state.slide !== this.pendingJump.slide && this.client) {
+            if (state.refused && this.client) {
                 // Refused: nothing new is coming, so stop dropping speech.
                 releaseInterruption(this.client);
                 this.events.onProblem(`Could not go to slide ${this.pendingJump.slide}.`);
@@ -317,6 +335,7 @@ export class Session {
         this.client = null;
         this.pendingPause = null;
         this.pendingJump = null;
+        this.pendingQuestion?.settle(false);
         this.pendingQuestion = null;
         this.captionsHeldFor = null;
         const wasLive = this.store.get().phase === 'live';
@@ -326,6 +345,7 @@ export class Session {
             studentSpeaking: false,
             paused: false,
             pendingSlide: null,
+            pendingQuestion: false,
         });
         if (wasLive && !this.leaving) {
             this.events.onProblem('The connection to the tutor dropped.');
