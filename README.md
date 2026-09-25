@@ -29,7 +29,7 @@ OPENAI_API_KEY=sk-...
 # PORT=7860
 # ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 # TUTOR_LLM_MODEL=gpt-4o
-# TUTOR_TTS_VOICE=coral
+# TUTOR_TTS_VOICE=marin
 ```
 
 Start the agent:
