@@ -129,6 +129,7 @@ class LessonController(BaseObserver):
         """Client report: its speaker queue started playing or ran dry."""
         if self._ended:
             return
+        logger.debug(f"Client playback {'started' if playing else 'idle'}")
         self._client_playing = playing
         if playing:
             self._cancel_idle()
