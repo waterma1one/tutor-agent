@@ -9,6 +9,7 @@ import asyncio
 from collections import deque
 from collections.abc import Awaitable, Callable, Sequence
 from functools import partial
+from typing import Protocol
 
 from loguru import logger
 from pipecat.frames.frames import (
@@ -32,6 +33,12 @@ from tutor.slides import Slide
 QueueFrames = Callable[[list[Frame]], Awaitable[None]]
 Notify = Callable[[dict], Awaitable[None]]
 
+
+class SpeechGate(Protocol):
+    async def pause(self) -> None: ...
+
+    async def resume(self) -> None: ...
+
 _WATCHED = (
     BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
@@ -49,6 +56,7 @@ class LessonController(BaseObserver):
         *,
         queue_frames: QueueFrames,
         notify: Notify,
+        speech_gate: SpeechGate,
         idle_secs: float = 2.0,
         no_reply_secs: float = 6.0,
     ):
@@ -57,6 +65,8 @@ class LessonController(BaseObserver):
         self.presentation = Presentation(slide_count=len(deck))
         self._queue_frames = queue_frames
         self._notify = notify
+        self._speech_gate = speech_gate
+        self._bot_speaking = False
         self._idle_secs = idle_secs
         self._no_reply_secs = no_reply_secs
         self._idle_task: asyncio.Task | None = None
@@ -71,10 +81,28 @@ class LessonController(BaseObserver):
             "mode": self.presentation.mode.value,
             "slide": self.presentation.slide,
             "total": len(self.deck),
+            "paused": self.presentation.paused,
         }
 
     async def start(self) -> None:
         await self._perform(self.presentation.start())
+
+    async def pause(self) -> None:
+        if not self.presentation.pause():
+            return
+        self._cancel_idle()
+        await self._speech_gate.pause()
+        await self._notify(self.snapshot())
+
+    async def resume(self) -> None:
+        if not self.presentation.resume():
+            return
+        await self._speech_gate.resume()
+        # Held speech restarts the normal speaking/idle cycle. If the tutor had
+        # already finished, nothing will, so restart the countdown here.
+        if not self._bot_speaking:
+            self._schedule_idle(self._idle_secs)
+        await self._notify(self.snapshot())
 
     async def handle_go_to_slide(self, params: FunctionCallParams) -> None:
         """LLM tool handler for `go_to_slide`."""
@@ -102,9 +130,15 @@ class LessonController(BaseObserver):
             return
 
         if isinstance(frame, BotStartedSpeakingFrame):
+            self._bot_speaking = True
             self._cancel_idle()
         elif isinstance(frame, BotStoppedSpeakingFrame):
-            self._schedule_idle(self._idle_secs)
+            self._bot_speaking = False
+            if not self.presentation.paused:
+                self._schedule_idle(self._idle_secs)
+        elif self.presentation.paused:
+            # Mic input is muted while paused; ignore any stray user turn.
+            return
         elif isinstance(frame, UserStartedSpeakingFrame):
             self._cancel_idle()
             self.presentation.on_user_spoke()
