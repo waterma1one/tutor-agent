@@ -19,11 +19,14 @@ import {
     RTVIEvent,
 } from '@pipecat-ai/client-js';
 import { WebSocketTransport } from '@pipecat-ai/websocket-transport';
+import { resumePlayback, suspendPlayback } from './playback';
 
 class WebsocketClientApp {
     private pcClient: PipecatClient | null = null;
     private connectBtn: HTMLButtonElement | null = null;
     private disconnectBtn: HTMLButtonElement | null = null;
+    private pauseBtn: HTMLButtonElement | null = null;
+    private paused = false;
     private statusSpan: HTMLElement | null = null;
     private debugLog: HTMLElement | null = null;
     private botAudio: HTMLAudioElement;
@@ -49,6 +52,9 @@ class WebsocketClientApp {
         this.disconnectBtn = document.getElementById(
             'disconnect-btn'
         ) as HTMLButtonElement;
+        this.pauseBtn = document.getElementById(
+            'pause-btn'
+        ) as HTMLButtonElement;
         this.statusSpan = document.getElementById('connection-status');
         this.debugLog = document.getElementById('debug-log');
     }
@@ -59,6 +65,36 @@ class WebsocketClientApp {
     private setupEventListeners(): void {
         this.connectBtn?.addEventListener('click', () => this.connect());
         this.disconnectBtn?.addEventListener('click', () => this.disconnect());
+        this.pauseBtn?.addEventListener('click', () => this.togglePause());
+    }
+
+    /**
+     * Pause or resume the lesson.
+     *
+     * Order matters: on pause the browser stops its own audio before asking the
+     * server to hold the rest; on resume it restarts its queue first so the
+     * server's held audio lands behind what was already buffered here.
+     */
+    private async togglePause(): Promise<void> {
+        const client = this.pcClient;
+        if (!client) return;
+        if (this.paused) {
+            await resumePlayback(client);
+            client.enableMic(true);
+            client.sendClientMessage('resume');
+        } else {
+            if (!(await suspendPlayback(client))) {
+                this.log('Could not pause local audio; speech already here will finish');
+            }
+            client.enableMic(false);
+            client.sendClientMessage('pause');
+        }
+        this.setPaused(!this.paused);
+    }
+
+    private setPaused(paused: boolean): void {
+        this.paused = paused;
+        if (this.pauseBtn) this.pauseBtn.textContent = paused ? 'Resume' : 'Pause';
     }
 
     /**
@@ -157,11 +193,14 @@ class WebsocketClientApp {
                         this.updateStatus('Connected');
                         if (this.connectBtn) this.connectBtn.disabled = true;
                         if (this.disconnectBtn) this.disconnectBtn.disabled = false;
+                        if (this.pauseBtn) this.pauseBtn.disabled = false;
                     },
                     onDisconnected: () => {
                         this.updateStatus('Disconnected');
                         if (this.connectBtn) this.connectBtn.disabled = false;
                         if (this.disconnectBtn) this.disconnectBtn.disabled = true;
+                        if (this.pauseBtn) this.pauseBtn.disabled = true;
+                        this.setPaused(false);
                         this.log('Client disconnected');
                     },
                     onBotReady: (data) => {
@@ -174,6 +213,10 @@ class WebsocketClientApp {
                         }
                     },
                     onBotTranscript: (data) => this.log(`Bot: ${data.text}`),
+                    onServerMessage: (data) => {
+                        this.log(`Server: ${JSON.stringify(data)}`);
+                        if (data?.type === 'lesson-state') this.setPaused(data.paused);
+                    },
                     onMessageError: (error) => console.error('Message error:', error),
                     onError: (error) => console.error('Error:', error),
                 },
