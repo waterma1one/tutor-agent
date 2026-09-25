@@ -1,4 +1,4 @@
-"""Captions that reach the student when the sentence starts playing, not after it ends."""
+"""Captions sent with each sentence's audio instead of after it."""
 
 from collections.abc import AsyncGenerator
 
@@ -14,8 +14,9 @@ class CaptionedTTSService(OpenAITTSService):
     behind all of its audio and the client's `bot-tts-text` arrives once the sentence
     has finished playing. A non-urgent transport message yielded from `run_tts` joins
     the same audio context, and the output transport sends it in order with the audio,
-    so the caption arrives just as the sentence begins. Being a data frame, it is also
-    held by the PauseGate while the lesson is paused.
+    right before the sentence. Audio goes out at twice real time, so the browser still
+    holds each caption until its sentence plays (frontend `captionQueue.ts`). Being a
+    data frame, it is also held by the PauseGate while the lesson is paused.
     """
 
     async def run_tts(self, text: str, context_id: str) -> AsyncGenerator[Frame, None]:

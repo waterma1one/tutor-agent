@@ -9,9 +9,11 @@ import {
     releaseInterruption,
     resumePlayback,
     suspendPlayback,
+    trackQueuedSpeech,
     tutorLevel,
     watchPlayback,
 } from './playback';
+import { CaptionQueue } from './captionQueue';
 import { MicLevel } from './micLevel';
 import type { Line, Mode, Slide, Store } from './store';
 import { initialState } from './store';
@@ -50,6 +52,7 @@ export class Session {
     private tutorLine: Line | null = null;
     private leaving = false;
     private mic = new MicLevel();
+    private captions = new CaptionQueue((text) => this.appendTutorText(text));
 
     constructor(
         private store: Store,
@@ -68,6 +71,9 @@ export class Session {
             callbacks: {
                 onBotReady: () => {
                     this.mic.attach(client.tracks().local.audio);
+                    const clock = trackQueuedSpeech(client);
+                    if (!clock) console.warn('No audio player yet; captions will not wait for speech.');
+                    this.captions.start(clock);
                     this.stopWatchingPlayback = watchPlayback(client, (playing) =>
                         this.send(playing ? 'playback-started' : 'playback-idle')
                     );
@@ -75,9 +81,9 @@ export class Session {
                 onDisconnected: () => this.finish(),
                 onServerMessage: (data) => {
                     if (data?.type === 'lesson-state') this.applyLessonState(data);
-                    // Sent by the server just as each sentence starts playing; the
-                    // standard bot-tts-text only arrives once the sentence has ended.
-                    else if (data?.type === 'caption') this.appendTutorText(data.text);
+                    // Sent just ahead of each sentence's audio and held until it plays;
+                    // the standard bot-tts-text only arrives once the sentence has ended.
+                    else if (data?.type === 'caption') this.captions.add(data.text);
                 },
                 onBotStartedSpeaking: () => {
                     // New speech has started, so the old speech a jump cut off
@@ -158,6 +164,7 @@ export class Session {
         this.tutorLine = null;
         this.store.set({ pendingSlide: slide });
         await interruptPlayback(client);
+        this.captions.clear();
         const id = this.send('go-to-slide', { slide });
         this.pendingJump = id ? { id, slide } : null;
         if (!id) this.store.set({ pendingSlide: null });
@@ -243,6 +250,7 @@ export class Session {
         if (!this.client) return;
         this.stopWatchingPlayback?.();
         this.stopWatchingPlayback = null;
+        this.captions.stop();
         this.mic.detach();
         this.client = null;
         this.pendingPause = null;

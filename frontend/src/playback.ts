@@ -104,3 +104,43 @@ export function loudness(analyser: AnalyserNode): number {
     const db = 10 * Math.log10(sum / levelBuffer.length + 1e-12);
     return Math.min(1, Math.max(0, (db - QUIET_DB) / (LOUD_DB - QUIET_DB)));
 }
+
+export interface SpeechClock {
+    /** The player's clock now, in seconds; it stands still while paused. */
+    now(): number;
+    /** When the speech queued so far finishes playing, on the same clock. */
+    queuedUntil(): number;
+    stop(): void;
+}
+
+/**
+ * Follows how far ahead of the student's ears the received speech runs.
+ *
+ * Sent at twice real time, speech piles up here, so anything the server sends
+ * alongside it (captions) arrives early. Every chunk the player accepts extends
+ * the queue from its end, or from now if the queue has run dry; the player's
+ * AudioContext time is the playhead, and suspending it for a pause stops it.
+ */
+export function trackQueuedSpeech(client: PipecatClient): SpeechClock | null {
+    const p = player(client);
+    const context = playerContext(client);
+    if (!p || !context) return null;
+
+    let endsAt = 0;
+    const add = p.add16BitPCM;
+    p.add16BitPCM = function (data: unknown, trackId?: string) {
+        const buffer: Int16Array | undefined = add.call(this, data, trackId);
+        if (buffer) {
+            const rate: number = p.sampleRate ?? context.sampleRate;
+            endsAt = Math.max(endsAt, context.currentTime) + buffer.length / rate;
+        }
+        return buffer;
+    };
+    return {
+        now: () => context.currentTime,
+        queuedUntil: () => Math.max(endsAt, context.currentTime),
+        stop: () => {
+            p.add16BitPCM = add;
+        },
+    };
+}
