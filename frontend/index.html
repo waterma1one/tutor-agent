@@ -36,7 +36,12 @@
       <header class="topbar">
         <p class="topbar-title">Natural disasters</p>
         <p id="mode-badge" class="badge" role="status"></p>
-        <button id="leave-btn" class="button button-quiet" type="button">Leave class</button>
+        <div class="topbar-actions">
+          <button id="keys-btn" class="button button-quiet keys-btn" type="button" aria-haspopup="dialog">
+            Shortcuts <kbd>?</kbd>
+          </button>
+          <button id="leave-btn" class="button button-quiet" type="button">Leave class</button>
+        </div>
       </header>
 
       <section class="stage">
@@ -69,7 +74,7 @@
         <canvas id="seismo" class="seismo-canvas" aria-hidden="true"></canvas>
         <p class="seismo-legend">
           <span class="legend-tutor">Terra</span>
-          <span class="legend-student">You</span>
+          <span id="legend-student" class="legend-student">You</span>
         </p>
         <button id="paused-veil" class="paused-veil" type="button" hidden>
           Paused. Terra will pick up from the same word. Press Space or click here to resume.
@@ -78,11 +83,31 @@
 
       <footer class="dock">
         <nav id="thumbs" class="thumbs" aria-label="Slides"></nav>
-        <button id="pause-btn" class="button button-primary pause" type="button" disabled>
-          <span class="pause-label">Pause</span><kbd>Space</kbd>
-        </button>
+        <div class="dock-controls">
+          <button id="pause-btn" class="button button-primary pause" type="button" disabled>
+            <span class="pause-label">Pause</span><kbd>Space</kbd>
+          </button>
+          <button id="mic-btn" class="button button-quiet mic" type="button" aria-pressed="false" disabled>
+            <span class="mic-label">Mute mic</span><kbd>M</kbd>
+          </button>
+        </div>
       </footer>
     </div>
+
+    <dialog id="keys-dialog" class="keys-dialog" aria-labelledby="keys-title">
+      <h2 id="keys-title" class="keys-title">Keyboard shortcuts</h2>
+      <dl class="keys-list">
+        <div><dt><kbd>Space</kbd></dt><dd>Pause or resume the lesson</dd></div>
+        <div><dt><kbd>M</kbd></dt><dd>Mute or unmute your mic</dd></div>
+        <div><dt><kbd>/</kbd></dt><dd>Type a question</dd></div>
+        <div><dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>Ask Terra to go to that slide</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>Show this list</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Close this list, or leave the question box</dd></div>
+      </dl>
+      <form method="dialog">
+        <button class="button button-primary" type="submit">Got it</button>
+      </form>
+    </dialog>
 
     <main id="ended" class="ended" hidden>
       <h1 class="ended-title">Class is over</h1>

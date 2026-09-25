@@ -150,12 +150,18 @@ export class Session {
             if (!(await suspendPlayback(client))) {
                 this.events.onProblem('Speech already playing could not be paused.');
             }
-            client.enableMic(false);
         } else {
             await resumePlayback(client);
-            client.enableMic(true);
         }
+        this.applyMic();
         this.pendingPause = this.send(pausing ? 'pause' : 'resume');
+    }
+
+    /** Mutes or unmutes the student's mic. Only the browser needs to know. */
+    toggleMic(): void {
+        if (!this.client) return;
+        this.store.set({ micMuted: !this.store.get().micMuted });
+        this.applyMic();
     }
 
     async goToSlide(slide: number): Promise<void> {
@@ -185,12 +191,12 @@ export class Session {
         return true;
     }
 
-    /** Current voice levels, 0 to 1, for the voice meter. The mic reads 0 while paused. */
+    /** Current voice levels, 0 to 1, for the voice meter. The mic reads 0 while it is off. */
     levels(): { tutor: number; student: number } {
         const client = this.client;
         if (!client) return { tutor: 0, student: 0 };
-        const paused = this.store.get().paused;
-        return { tutor: tutorLevel(client), student: paused ? 0 : this.mic.level() };
+        const { paused, micMuted } = this.store.get();
+        return { tutor: tutorLevel(client), student: paused || micMuted ? 0 : this.mic.level() };
     }
 
     /** Sends a client message tagged with a fresh request id, or null if offline. */
@@ -253,7 +259,12 @@ export class Session {
         } else {
             void resumePlayback(client);
         }
-        client.enableMic(!paused);
+        this.applyMic(paused);
+    }
+
+    /** The mic is live only while the lesson runs and the student has not muted it. */
+    private applyMic(paused = this.store.get().paused): void {
+        this.client?.enableMic(!paused && !this.store.get().micMuted);
     }
 
     private appendTutorText(text: string): void {

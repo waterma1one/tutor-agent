@@ -116,6 +116,48 @@ kbd {
   opacity: 0.7;
 }
 
+/* ---------- Shortcuts list ---------- */
+
+.topbar-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.keys-dialog {
+  max-width: min(28rem, calc(100vw - 2rem));
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 1.5rem;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.keys-dialog::backdrop {
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+.keys-title {
+  margin: 0 0 1rem;
+  font: 800 1.4rem/1.1 var(--display);
+}
+
+.keys-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 0 1.25rem;
+}
+
+.keys-list div {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  align-items: center;
+  gap: 1rem;
+}
+
+.keys-list dd {
+  margin: 0;
+}
+
 /* ---------- Landing ---------- */
 
 .landing {
@@ -495,6 +537,10 @@ kbd {
   color: var(--signal);
 }
 
+.legend-muted {
+  color: var(--ink-soft);
+}
+
 /* ---------- Dock ---------- */
 
 .dock {
@@ -547,6 +593,7 @@ kbd {
 }
 
 .thumb-title {
+  align-self: start;
   font-size: 0.8rem;
   line-height: 1.25;
   display: -webkit-box;
@@ -575,8 +622,6 @@ kbd {
 }
 
 .pause {
-  flex: none;
-  width: 11rem;
   justify-content: center;
   font-size: 1.15rem;
 }
@@ -585,6 +630,24 @@ kbd {
   background: var(--signal);
   border-color: var(--signal);
   color: #1d2b3a;
+}
+
+.dock-controls {
+  flex: none;
+  width: 11rem;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 0.4rem;
+}
+
+.mic {
+  justify-content: center;
+  padding-block: 0.4rem;
+}
+
+.mic[aria-pressed='true'] {
+  border-color: var(--alarm);
+  color: var(--alarm);
 }
 
 /* ---------- Paused notice ---------- */
@@ -724,8 +787,14 @@ kbd {
     flex-direction: column-reverse;
   }
 
-  .pause {
+  .pause,
+  .dock-controls {
     width: 100%;
+  }
+
+  /* Phones have no keyboard to use shortcuts with. */
+  .keys-btn {
+    display: none;
   }
 }
 

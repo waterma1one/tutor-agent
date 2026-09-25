@@ -5,6 +5,7 @@ import { mountAsk } from './ui/ask';
 import { mountControls } from './ui/controls';
 import { mountLanding } from './ui/landing';
 import { mountScreens } from './ui/screens';
+import { mountShortcuts } from './ui/shortcuts';
 import { mountSeismograph } from './ui/seismograph';
 import { mountStage } from './ui/stage';
 import { mountThumbs } from './ui/thumbs';
@@ -20,9 +21,15 @@ mountCaptions(store);
 mountThumbs(store, (n) => void session.goToSlide(n));
 mountControls(store, {
     togglePause: () => void session.togglePause(),
+    toggleMic: () => session.toggleMic(),
     leave: () => void session.leave(),
 });
 mountAsk(store, (text) => session.ask(text));
+mountShortcuts(store, {
+    togglePause: () => void session.togglePause(),
+    toggleMic: () => session.toggleMic(),
+    goToSlide: (n) => void session.goToSlide(n),
+});
 mountSeismograph(store, () => session.levels());
 
 loadSlides()

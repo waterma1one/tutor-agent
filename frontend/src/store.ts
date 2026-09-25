@@ -32,6 +32,8 @@ export interface State {
     slide: number | null;
     mode: Mode;
     paused: boolean;
+    /** The student switched their mic off; it stays off through pause and resume. */
+    micMuted: boolean;
     tutorSpeaking: boolean;
     studentSpeaking: boolean;
     /** Everything said so far, oldest first. */
@@ -50,6 +52,7 @@ export const initialState: State = {
     slide: null,
     mode: 'presenting',
     paused: false,
+    micMuted: false,
     tutorSpeaking: false,
     studentSpeaking: false,
     lines: [],
