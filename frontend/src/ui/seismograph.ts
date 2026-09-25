@@ -17,6 +17,7 @@ export function mountSeismograph(store: Store, levels: Levels): void {
     let student: number[] = [];
     let smoothTutor = 0;
     let smoothStudent = 0;
+    let direction: 1 | -1 = 1;
     let colors = readColors(canvas);
     let frame = 0;
 
@@ -39,8 +40,10 @@ export function mountSeismograph(store: Store, levels: Levels): void {
         smoothTutor += (now.tutor - smoothTutor) * SMOOTHING;
         smoothStudent += (now.student - smoothStudent) * SMOOTHING;
         const capacity = Math.ceil(canvas.clientWidth / STEP_PX) + 1;
-        tutor = pushSample(tutor, smoothTutor, capacity);
-        student = pushSample(student, smoothStudent, capacity);
+        // A full trace keeps its length, so the swing needs its own counter.
+        direction = direction === 1 ? -1 : 1;
+        tutor = pushSample(tutor, smoothTutor, capacity, direction);
+        student = pushSample(student, smoothStudent, capacity, direction);
         draw(context, canvas, colors, tutor, student);
     };
 
@@ -59,8 +62,12 @@ export function mountSeismograph(store: Store, levels: Levels): void {
 }
 
 /** A seismogram swings both ways; alternate the sign and add some jitter. */
-function pushSample(trace: number[], level: number, capacity: number): number[] {
-    const direction = trace.length % 2 === 0 ? 1 : -1;
+function pushSample(
+    trace: number[],
+    level: number,
+    capacity: number,
+    direction: 1 | -1
+): number[] {
     const jitter = 0.55 + Math.random() * 0.45;
     const floor = 0.015 * (Math.random() - 0.5);
     const next = [...trace, direction * level * jitter + floor];
