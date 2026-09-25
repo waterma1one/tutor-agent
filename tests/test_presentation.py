@@ -117,3 +117,58 @@ def test_go_to_rejects_out_of_range(number):
 def test_rejects_empty_deck():
     with pytest.raises(ValueError):
         Presentation(slide_count=0)
+
+
+def test_pause_blocks_idle_and_resume_restores():
+    p = make()
+    p.start()
+    assert p.pause() is True
+    assert p.paused
+    assert p.on_bot_idle() is None
+    assert p.slide == 1
+    assert p.resume() is True
+    assert not p.paused
+    assert p.on_bot_idle() == Present(2)
+
+
+def test_pause_and_resume_are_idempotent():
+    p = make()
+    p.start()
+    assert p.pause() is True
+    assert p.pause() is False
+    assert p.resume() is True
+    assert p.resume() is False
+
+
+def test_user_speech_while_paused_is_ignored():
+    p = make()
+    p.start()
+    p.pause()
+    p.on_user_spoke()
+    p.resume()
+    assert p.on_bot_idle() == Present(2)
+
+
+def test_pending_question_survives_pause():
+    p = make()
+    p.start()
+    p.on_user_spoke()
+    p.pause()
+    p.resume()
+    assert p.on_bot_idle() == ContinueSlide(1)
+
+
+def test_pause_keeps_qna_mode():
+    p = make(count=1)
+    p.start()
+    p.on_bot_idle()
+    p.pause()
+    assert p.mode is Mode.QNA
+    p.resume()
+    assert p.mode is Mode.QNA
+
+
+def test_pause_before_start_is_rejected():
+    p = make()
+    assert p.pause() is False
+    assert not p.paused

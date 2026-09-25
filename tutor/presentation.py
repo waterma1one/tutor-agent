@@ -44,10 +44,28 @@ class Presentation:
         self.mode = Mode.PRESENTING
         self.slide: int | None = None
         self._question_pending = False
+        self.paused = False
 
     @property
     def started(self) -> bool:
         return self.slide is not None
+
+    def pause(self) -> bool:
+        """Freeze the flow. Returns whether anything changed.
+
+        Pausing is orthogonal to the mode, so resuming lands back exactly where
+        the lesson was, including a question still waiting for its answer.
+        """
+        if not self.started or self.paused:
+            return False
+        self.paused = True
+        return True
+
+    def resume(self) -> bool:
+        if not self.paused:
+            return False
+        self.paused = False
+        return True
 
     def start(self) -> Action | None:
         if self.started:
@@ -55,12 +73,12 @@ class Presentation:
         return self._present(1)
 
     def on_user_spoke(self) -> None:
-        if self.started and self.mode is Mode.PRESENTING:
+        if self.started and not self.paused and self.mode is Mode.PRESENTING:
             self._question_pending = True
 
     def on_bot_idle(self) -> Action | None:
         """The tutor finished talking and nobody spoke for a while."""
-        if not self.started or self.mode is Mode.QNA:
+        if not self.started or self.paused or self.mode is Mode.QNA:
             return None
         if self._question_pending:
             self._question_pending = False
