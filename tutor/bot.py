@@ -23,6 +23,7 @@ from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPI
 
 from tutor import prompts
 from tutor.controller import LessonController
+from tutor.pause import MuteWhilePaused, PauseGate
 from tutor.slides import DECK
 
 LLM_MODEL = os.getenv("TUTOR_LLM_MODEL", "gpt-4o")
@@ -79,21 +80,6 @@ async def run_bot(websocket) -> None:
     vad = SileroVADAnalyzer(
         params=VADParams(confidence=0.85, start_secs=0.45, stop_secs=0.35, min_volume=0.7)
     )
-    aggregators = LLMContextAggregatorPair(
-        context, user_params=LLMUserAggregatorParams(vad_analyzer=vad)
-    )
-
-    pipeline = Pipeline(
-        [
-            transport.input(),
-            stt,
-            aggregators.user(),
-            llm,
-            tts,
-            transport.output(),
-            aggregators.assistant(),
-        ]
-    )
 
     # The task and controller reference each other, so the controller gets
     # thin callbacks that resolve the task at call time.
@@ -105,8 +91,32 @@ async def run_bot(websocket) -> None:
     async def notify(state: dict):
         await task.rtvi.send_server_message(state)
 
-    controller = LessonController(DECK, queue_frames=queue_frames, notify=notify)
+    gate = PauseGate()
+    controller = LessonController(
+        DECK, queue_frames=queue_frames, notify=notify, speech_gate=gate
+    )
     llm.register_function("go_to_slide", controller.handle_go_to_slide)
+
+    aggregators = LLMContextAggregatorPair(
+        context,
+        user_params=LLMUserAggregatorParams(
+            vad_analyzer=vad,
+            user_mute_strategies=[MuteWhilePaused(lambda: controller.presentation.paused)],
+        ),
+    )
+
+    pipeline = Pipeline(
+        [
+            transport.input(),
+            stt,
+            aggregators.user(),
+            llm,
+            tts,
+            gate,
+            transport.output(),
+            aggregators.assistant(),
+        ]
+    )
 
     task = PipelineTask(
         pipeline,
@@ -118,6 +128,16 @@ async def run_bot(websocket) -> None:
     async def on_client_ready(rtvi):
         logger.info("Client ready, starting lesson")
         await controller.start()
+
+    @task.rtvi.event_handler("on_client_message")
+    async def on_client_message(rtvi, message):
+        match message.type:
+            case "pause":
+                await controller.pause()
+            case "resume":
+                await controller.resume()
+            case _:
+                logger.warning(f"Ignoring unknown client message: {message.type}")
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):

@@ -9,6 +9,7 @@ Audio already sent to the browser is paused there; see docs/NOTES.md.
 """
 
 import asyncio
+from collections.abc import Callable
 
 from pipecat.frames.frames import (
     EndFrame,
@@ -19,6 +20,7 @@ from pipecat.frames.frames import (
     UninterruptibleFrame,
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
+from pipecat.turns.user_mute.base_user_mute_strategy import BaseUserMuteStrategy
 
 
 class PauseGate(FrameProcessor):
@@ -73,3 +75,17 @@ class PauseGate(FrameProcessor):
                 self._held.append(frame)
             else:
                 await self.push_frame(frame, direction)
+
+
+class MuteWhilePaused(BaseUserMuteStrategy):
+    """Ignores the student's microphone while the lesson is paused.
+
+    The browser also turns its mic off; this covers audio already in flight.
+    """
+
+    def __init__(self, is_paused: Callable[[], bool], **kwargs):
+        super().__init__(**kwargs)
+        self._is_paused = is_paused
+
+    async def process_frame(self, frame: Frame) -> bool:
+        return self._is_paused()
