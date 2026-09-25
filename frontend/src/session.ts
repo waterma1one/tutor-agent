@@ -209,6 +209,10 @@ export class Session {
 
     private applyLessonState(state: LessonState): void {
         const patch: Partial<typeof initialState> = { slide: state.slide, mode: state.mode };
+        const { visited } = this.store.get();
+        if (state.slide !== null && !visited.includes(state.slide)) {
+            patch.visited = [...visited, state.slide];
+        }
 
         // While a pause or resume is in flight, older replies describe a state
         // the student has already left. The reply to the latest request wins,
@@ -259,14 +263,24 @@ export class Session {
             this.tutorLine = { ...this.tutorLine, text: joined };
             this.store.set({ lines: [...lines.slice(0, -1), this.tutorLine] });
         } else {
-            this.tutorLine = { id: this.nextLine++, speaker: 'tutor', text: text.trim() };
+            this.tutorLine = {
+                id: this.nextLine++,
+                speaker: 'tutor',
+                text: text.trim(),
+                slide: this.store.get().slide,
+            };
             this.store.set({ lines: [...lines, this.tutorLine] });
         }
     }
 
     private addStudentLine(text: string): void {
         this.tutorLine = null;
-        const line: Line = { id: this.nextLine++, speaker: 'student', text };
+        const line: Line = {
+            id: this.nextLine++,
+            speaker: 'student',
+            text,
+            slide: this.store.get().slide,
+        };
         this.store.set({ lines: [...this.store.get().lines, line] });
     }
 

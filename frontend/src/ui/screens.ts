@@ -1,5 +1,6 @@
-import type { Store } from '../store';
-import { byId } from './dom';
+import type { State, Store } from '../store';
+import { downloadTranscript } from '../transcript';
+import { byId, element } from './dom';
 
 /** Shows the screen for the current phase and fills in the end-of-class summary. */
 export function mountScreens(store: Store): void {
@@ -7,7 +8,7 @@ export function mountScreens(store: Store): void {
     const classroom = byId('classroom');
     const ended = byId('ended');
     const startButton = byId<HTMLButtonElement>('start-btn');
-    const summary = byId('ended-summary');
+    byId('transcript-btn').addEventListener('click', () => downloadTranscript(store.get()));
 
     store.subscribe((state, previous) => {
         landing.hidden = !(state.phase === 'landing' || state.phase === 'connecting');
@@ -23,18 +24,27 @@ export function mountScreens(store: Store): void {
               : 'Calling Terra…';
         startButton.setAttribute('aria-busy', String(connecting));
 
-        if (state.phase === 'ended' && previous.phase !== 'ended') {
-            const reached = state.slide ?? 0;
-            const questions = state.lines.filter((line) => line.speaker === 'student').length;
-            const progress =
-                state.mode === 'qna'
-                    ? `You heard all ${state.slides.length} slides and stayed for questions.`
-                    : `You got to slide ${reached} of ${state.slides.length}.`;
-            const spoke =
-                questions === 0 ? 'You did not ask anything this time.'
-                : questions === 1 ? 'You spoke once.'
-                : `You spoke ${questions} times.`;
-            summary.textContent = `${progress} ${spoke}`;
-        }
+        if (state.phase === 'ended' && previous.phase !== 'ended') renderSummary(state);
     });
+}
+
+function renderSummary(state: State): void {
+    const total = state.slides.length;
+    const covered = state.visited.length;
+    const said = state.lines.filter((line) => line.speaker === 'student');
+
+    byId('ended-summary').textContent =
+        state.mode === 'qna'
+            ? `You heard all ${total} slides and stayed for questions.`
+            : covered === 0
+              ? 'The class ended before the first slide.'
+              : `You got as far as slide ${Math.max(...state.visited)} of ${total}.`;
+    byId('stat-slides').textContent = `${covered} of ${total}`;
+    byId('stat-spoke').textContent = String(said.length);
+
+    byId('ended-said').hidden = said.length === 0;
+    byId('ended-said-list').replaceChildren(
+        ...said.map((line) => element('li', undefined, line.text))
+    );
+    byId<HTMLButtonElement>('transcript-btn').disabled = state.lines.length === 0;
 }

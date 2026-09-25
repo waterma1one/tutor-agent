@@ -87,7 +87,26 @@
     <main id="ended" class="ended" hidden>
       <h1 class="ended-title">Class is over</h1>
       <p id="ended-summary" class="ended-summary"></p>
-      <button id="again-btn" class="button button-primary" type="button">Start a new class</button>
+      <dl class="ended-stats">
+        <div class="stat">
+          <dt>Slides covered</dt>
+          <dd id="stat-slides"></dd>
+        </div>
+        <div class="stat">
+          <dt>Times you spoke up</dt>
+          <dd id="stat-spoke"></dd>
+        </div>
+      </dl>
+      <section id="ended-said" class="ended-said" hidden>
+        <h2 class="ended-heading">What you said</h2>
+        <ol id="ended-said-list" class="ended-said-list"></ol>
+      </section>
+      <div class="ended-actions">
+        <button id="again-btn" class="button button-primary" type="button">Start a new class</button>
+        <button id="transcript-btn" class="button button-quiet" type="button">
+          Download transcript
+        </button>
+      </div>
     </main>
 
     <div id="toasts" class="toasts" role="alert" aria-live="assertive"></div>

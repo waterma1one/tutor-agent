@@ -21,6 +21,8 @@ export interface Line {
     id: number;
     speaker: 'tutor' | 'student';
     text: string;
+    /** The slide on screen when it was said; null before the first slide. */
+    slide: number | null;
 }
 
 export interface State {
@@ -34,6 +36,8 @@ export interface State {
     studentSpeaking: boolean;
     /** Everything said so far, oldest first. */
     lines: Line[];
+    /** Slides presented so far, in the order they were first shown. */
+    visited: number[];
     /** A slide the student asked for that the tutor has not moved to yet. */
     pendingSlide: number | null;
     /** While connecting: waiting for mic permission, then for the tutor. */
@@ -49,6 +53,7 @@ export const initialState: State = {
     tutorSpeaking: false,
     studentSpeaking: false,
     lines: [],
+    visited: [],
     pendingSlide: null,
     connectStep: 'mic',
 };
