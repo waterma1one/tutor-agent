@@ -193,7 +193,6 @@ class WebsocketClientApp {
                         this.updateStatus('Connected');
                         if (this.connectBtn) this.connectBtn.disabled = true;
                         if (this.disconnectBtn) this.disconnectBtn.disabled = false;
-                        if (this.pauseBtn) this.pauseBtn.disabled = false;
                     },
                     onDisconnected: () => {
                         this.updateStatus('Disconnected');
@@ -215,7 +214,11 @@ class WebsocketClientApp {
                     onBotTranscript: (data) => this.log(`Bot: ${data.text}`),
                     onServerMessage: (data) => {
                         this.log(`Server: ${JSON.stringify(data)}`);
-                        if (data?.type === 'lesson-state') this.setPaused(data.paused);
+                        // The server ignores pause until the lesson starts, so
+                        // only offer it once the first lesson state arrives.
+                        if (data?.type === 'lesson-state' && this.pauseBtn) {
+                            this.pauseBtn.disabled = false;
+                        }
                     },
                     onMessageError: (error) => console.error('Message error:', error),
                     onError: (error) => console.error('Error:', error),
