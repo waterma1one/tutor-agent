@@ -53,10 +53,11 @@ export class Session {
     private pendingQuestion: { id: string; text: string; settle: (taken: boolean) => void } | null =
         null;
     /**
-     * The ask or jump whose reply ends the cut-off speech's captions. Captions
-     * sent before the server acted on it arrive first; drop them until then.
+     * The ask or jump that cut the tutor off, until its reply. The server
+     * replies once it has stopped the old speech, so audio and captions of
+     * that speech arrive before the reply: drop them until then.
      */
-    private captionsHeldFor: string | null = null;
+    private cutOffBy: string | null = null;
     private nextLine = 1;
     /** The tutor line captions are appending to; a new one starts per reply. */
     private tutorLine: Line | null = null;
@@ -183,7 +184,7 @@ export class Session {
         this.captions.clear();
         const id = this.send('go-to-slide', { slide });
         this.pendingJump = id ? { id, slide } : null;
-        this.captionsHeldFor = id;
+        this.cutOffBy = id;
         if (!id) this.store.set({ pendingSlide: null });
     }
 
@@ -199,7 +200,7 @@ export class Session {
         const id = this.send('ask', { text });
         if (!id) return Promise.resolve(false);
         this.captions.clear();
-        this.captionsHeldFor = id;
+        this.cutOffBy = id;
         void interruptPlayback(client);
         this.store.set({ pendingQuestion: true });
         return new Promise((settle) => {
@@ -245,15 +246,17 @@ export class Session {
             patch.paused = state.paused;
         }
 
-        if (state.request === this.captionsHeldFor) this.captionsHeldFor = null;
+        if (this.cutOffBy && state.request === this.cutOffBy) {
+            this.cutOffBy = null;
+            // Whatever comes next is new speech, even when no reply speaks.
+            if (this.client) releaseInterruption(this.client);
+        }
 
         if (this.pendingQuestion && state.request === this.pendingQuestion.id) {
             const { text, settle } = this.pendingQuestion;
             this.pendingQuestion = null;
             patch.pendingQuestion = false;
             if (state.refused) {
-                // Nothing new is coming, so stop dropping speech.
-                if (this.client) releaseInterruption(this.client);
                 this.events.onProblem(
                     state.paused
                         ? 'Your question was not sent because the class is paused.'
@@ -266,9 +269,7 @@ export class Session {
         }
 
         if (this.pendingJump && state.request === this.pendingJump.id) {
-            if (state.refused && this.client) {
-                // Refused: nothing new is coming, so stop dropping speech.
-                releaseInterruption(this.client);
+            if (state.refused) {
                 this.events.onProblem(`Could not go to slide ${this.pendingJump.slide}.`);
             }
             this.pendingJump = null;
@@ -278,7 +279,7 @@ export class Session {
     }
 
     private onCaption(text: string): void {
-        if (!this.captionsHeldFor) this.captions.add(text);
+        if (!this.cutOffBy) this.captions.add(text);
     }
 
     /** Brings the browser's audio and mic in line with the server's pause state. */
@@ -337,7 +338,7 @@ export class Session {
         this.pendingJump = null;
         this.pendingQuestion?.settle(false);
         this.pendingQuestion = null;
-        this.captionsHeldFor = null;
+        this.cutOffBy = null;
         const wasLive = this.store.get().phase === 'live';
         this.store.set({
             phase: wasLive ? 'ended' : this.store.get().phase,

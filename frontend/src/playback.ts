@@ -68,7 +68,7 @@ export async function resumePlayback(client: PipecatClient): Promise<boolean> {
  * blocks the track id every chunk shares ("default"), so all later speech
  * would be dropped too. That block is useful for a moment: it discards the
  * old speech still in flight from the server. Call `releaseInterruption` once
- * the new speech starts.
+ * that speech has stopped arriving.
  */
 export async function interruptPlayback(client: PipecatClient): Promise<void> {
     await player(client)?.interrupt();
