@@ -1,15 +1,14 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react-swc';
+
+// The page talks to the bot server through the dev server, so it needs no
+// CORS setup and no hard-coded backend address.
+const BACKEND = process.env.TUTOR_BACKEND ?? 'http://localhost:7860';
 
 export default defineConfig({
-  plugins: [react()],
   server: {
     proxy: {
-      // Proxy /api requests to the backend server
-      '/connect': {
-        target: 'http://0.0.0.0:7860', // Replace with your backend URL
-        changeOrigin: true,
-      },
+      '/connect': { target: BACKEND, changeOrigin: true },
+      '/slides': { target: BACKEND, changeOrigin: true },
     },
   },
 });
