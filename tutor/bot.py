@@ -142,6 +142,7 @@ async def run_bot(websocket) -> None:
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
         logger.info("Client disconnected")
+        await controller.stop()
         await task.cancel()
 
     await PipelineRunner(handle_sigint=False).run(task)

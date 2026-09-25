@@ -5,6 +5,8 @@ import pytest
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
+    CancelFrame,
+    EndFrame,
     LLMMessagesTransformFrame,
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
@@ -280,3 +282,33 @@ async def test_ignored_pause_still_reports_state():
     await h.controller.pause()
     assert h.gate.calls == []
     assert h.notes == [h.controller.snapshot()]
+
+
+async def test_frames_after_cancel_do_not_move_the_lesson():
+    h = Harness()
+    await h.controller.start()
+    await h.push(CancelFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await settle()
+    assert len(h.queued) == 1
+
+
+async def test_resume_after_end_does_nothing():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStoppedSpeakingFrame())
+    await h.controller.pause()
+    await h.push(EndFrame())
+    await h.controller.resume()
+    await settle()
+    assert len(h.queued) == 1
+    assert h.gate.calls == ["pause"]
+
+
+async def test_stop_cancels_the_pending_countdown():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStoppedSpeakingFrame())
+    await h.controller.stop()
+    await settle()
+    assert len(h.queued) == 1

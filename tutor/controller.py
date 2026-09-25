@@ -68,6 +68,8 @@ class LessonController(BaseObserver):
         self._speech_gate = speech_gate
         self._bot_speaking = False
         self._user_speaking = False
+        # Set once the session ends; nothing may reach the LLM or UI after it.
+        self._ended = False
         self._idle_secs = idle_secs
         self._no_reply_secs = no_reply_secs
         self._idle_task: asyncio.Task | None = None
@@ -91,7 +93,14 @@ class LessonController(BaseObserver):
     async def start(self) -> None:
         await self._perform(self.presentation.start())
 
+    async def stop(self) -> None:
+        """End the lesson for good: stop timers and ignore everything after."""
+        self._ended = True
+        self._cancel_idle()
+
     async def pause(self) -> None:
+        if self._ended:
+            return
         if self.presentation.pause():
             self._paused_delay = self._idle_delay
             self._cancel_idle()
@@ -100,6 +109,8 @@ class LessonController(BaseObserver):
         await self._notify(self.snapshot())
 
     async def resume(self) -> None:
+        if self._ended:
+            return
         if self.presentation.resume():
             await self._speech_gate.resume()
             # Held speech restarts the normal speaking/idle cycle. If the tutor
@@ -132,7 +143,10 @@ class LessonController(BaseObserver):
 
     async def on_push_frame(self, data: FramePushed) -> None:
         frame = data.frame
-        if not isinstance(frame, _WATCHED) or self._already_seen(frame):
+        if self._ended or not isinstance(frame, _WATCHED) or self._already_seen(frame):
+            return
+        if isinstance(frame, (EndFrame, CancelFrame)):
+            await self.stop()
             return
 
         # Track the student's turn even while paused, so a turn that ends
@@ -161,8 +175,6 @@ class LessonController(BaseObserver):
             # Normally the tutor answers and BotStoppedSpeaking restarts the
             # flow. This fallback covers a reply that never comes.
             self._schedule_idle(self._no_reply_secs)
-        else:
-            self._cancel_idle()
 
     def _already_seen(self, frame: Frame) -> bool:
         if frame.id in self._seen_ids or frame.broadcast_sibling_id in self._seen_ids:
@@ -188,7 +200,8 @@ class LessonController(BaseObserver):
         await self._perform(self.presentation.on_bot_idle())
 
     async def _perform(self, action: Action | None) -> None:
-        if action is None:
+        # A tool call or countdown already in flight can land after the end.
+        if action is None or self._ended:
             return
         direction = self._direction_for(action)
         logger.info(f"Lesson action: {action}")
