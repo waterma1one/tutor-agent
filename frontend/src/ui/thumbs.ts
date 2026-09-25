@@ -1,4 +1,4 @@
-import type { Store } from '../store';
+import { requestsOpen, type Store } from '../store';
 import { byId, element } from './dom';
 
 /** The row of slides. Picking one asks Terra to go there. */
@@ -24,7 +24,7 @@ export function mountThumbs(store: Store, goToSlide: (n: number) => void): void 
             );
         }
 
-        const locked = state.paused || state.slide === null || state.pendingSlide !== null;
+        const locked = !requestsOpen(state);
         nav.querySelectorAll<HTMLButtonElement>('.thumb').forEach((button) => {
             const number = Number(button.dataset.slide);
             const current = state.mode === 'presenting' && number === state.slide;

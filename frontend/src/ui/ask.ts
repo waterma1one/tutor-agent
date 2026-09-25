@@ -1,4 +1,4 @@
-import type { State, Store } from '../store';
+import { requestsOpen, type State, type Store } from '../store';
 import { byId } from './dom';
 
 /**
@@ -12,7 +12,7 @@ export function mountAsk(store: Store, ask: (text: string) => Promise<boolean>):
     const button = byId<HTMLButtonElement>('ask-btn');
 
     const sync = (state: State) => {
-        const open = canAsk(state);
+        const open = requestsOpen(state);
         input.disabled = !open;
         button.disabled = !open || !input.value.trim();
         input.placeholder = state.paused ? 'Resume to ask a question' : 'Or type a question…';
@@ -22,21 +22,11 @@ export function mountAsk(store: Store, ask: (text: string) => Promise<boolean>):
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const text = input.value.trim();
-        if (!text || !canAsk(store.get())) return;
+        if (!text || !requestsOpen(store.get())) return;
         if (await ask(text)) {
             input.value = '';
             sync(store.get());
         }
     });
     store.subscribe((state) => sync(state));
-}
-
-function canAsk(state: State): boolean {
-    return (
-        state.phase === 'live' &&
-        !state.paused &&
-        state.slide !== null &&
-        state.pendingSlide === null &&
-        !state.pendingQuestion
-    );
 }

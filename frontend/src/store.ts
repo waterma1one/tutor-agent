@@ -64,6 +64,20 @@ export const initialState: State = {
     connectStep: 'mic',
 };
 
+/**
+ * Whether the student can ask a question or jump to a slide now: the lesson is
+ * running and no earlier request is still waiting for the tutor.
+ */
+export function requestsOpen(state: State): boolean {
+    return (
+        state.phase === 'live' &&
+        !state.paused &&
+        state.slide !== null &&
+        state.pendingSlide === null &&
+        !state.pendingQuestion
+    );
+}
+
 type Listener = (state: State, previous: State) => void;
 
 export class Store {

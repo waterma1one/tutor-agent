@@ -16,7 +16,7 @@ import {
 import { CaptionQueue } from './captionQueue';
 import { MicLevel } from './micLevel';
 import type { Line, Mode, Slide, Store } from './store';
-import { initialState } from './store';
+import { initialState, requestsOpen } from './store';
 
 interface LessonState {
     type: 'lesson-state';
@@ -176,8 +176,7 @@ export class Session {
 
     async goToSlide(slide: number): Promise<void> {
         const client = this.client;
-        const state = this.store.get();
-        if (!client || state.paused || state.slide === null || this.pendingJump) return;
+        if (!client || !requestsOpen(this.store.get())) return;
         this.tutorLine = null;
         this.store.set({ pendingSlide: slide });
         await interruptPlayback(client);
@@ -194,9 +193,7 @@ export class Session {
      */
     ask(text: string): Promise<boolean> {
         const client = this.client;
-        const state = this.store.get();
-        const busy = this.pendingJump || this.pendingQuestion;
-        if (!client || state.paused || state.slide === null || busy) return Promise.resolve(false);
+        if (!client || !requestsOpen(this.store.get())) return Promise.resolve(false);
         const id = this.send('ask', { text });
         if (!id) return Promise.resolve(false);
         this.captions.clear();
