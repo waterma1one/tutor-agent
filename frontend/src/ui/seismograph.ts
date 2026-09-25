@@ -4,7 +4,7 @@ import { byId, prefersReducedMotion } from './dom';
 type Levels = () => { tutor: number; student: number };
 
 const STEP_PX = 3;
-const SMOOTHING = 0.35;
+const SMOOTHING = 0.15;
 
 /**
  * Draws both voices as a scrolling seismogram: Terra above the baseline, the

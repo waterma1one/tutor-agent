@@ -89,9 +89,10 @@ export function tutorLevel(client: PipecatClient): number {
 }
 
 // Speech sits roughly between -45 and -15 dBFS, so a linear RMS barely moves the trace.
-// Map that range onto 0..1 on a decibel scale instead.
-const QUIET_DB = -55;
-const LOUD_DB = -15;
+// Map loudness onto 0..1 on a decibel scale instead; this range keeps ordinary speech
+// under half height and quiet background noise at zero.
+const QUIET_DB = -50;
+const LOUD_DB = -5;
 
 /** Loudness of the analyser's current window, from 0 (quiet) to 1 (loud). */
 export function loudness(analyser: AnalyserNode): number {
