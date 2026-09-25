@@ -68,6 +68,10 @@ class LessonController(BaseObserver):
         self._speech_gate = speech_gate
         self._bot_speaking = False
         self._user_speaking = False
+        # The server finishes sending speech well before the student hears the
+        # end of it. Clients that report their playback let the countdown start
+        # when the audio actually runs out; others fall back to server timing.
+        self._client_playing = False
         # Set once the session ends; nothing may reach the LLM or UI after it.
         self._ended = False
         self._idle_secs = idle_secs
@@ -116,10 +120,20 @@ class LessonController(BaseObserver):
             # Held speech restarts the normal speaking/idle cycle. If the tutor
             # was silent, restart the countdown that pausing interrupted; the
             # longer no-reply wait must not shrink to the idle delay.
-            if not self._bot_speaking:
+            if not self._tutor_audible():
                 self._schedule_idle(self._paused_delay or self._idle_secs)
             self._paused_delay = None
         await self._notify(self.snapshot())
+
+    async def on_playback(self, playing: bool) -> None:
+        """Client report: its speaker queue started playing or ran dry."""
+        if self._ended:
+            return
+        self._client_playing = playing
+        if playing:
+            self._cancel_idle()
+        elif self._ready_to_count_down():
+            self._schedule_idle(self._idle_secs)
 
     async def handle_go_to_slide(self, params: FunctionCallParams) -> None:
         """LLM tool handler for `go_to_slide`."""
@@ -163,7 +177,7 @@ class LessonController(BaseObserver):
             self._bot_speaking = False
             # An interruption stops the tutor while the student is still
             # talking; their UserStoppedSpeaking starts the countdown instead.
-            if not self.presentation.paused and not self._user_speaking:
+            if self._ready_to_count_down():
                 self._schedule_idle(self._idle_secs)
         elif self.presentation.paused:
             # Mic input is muted while paused; ignore any stray user turn.
@@ -175,6 +189,12 @@ class LessonController(BaseObserver):
             # Normally the tutor answers and BotStoppedSpeaking restarts the
             # flow. This fallback covers a reply that never comes.
             self._schedule_idle(self._no_reply_secs)
+
+    def _tutor_audible(self) -> bool:
+        return self._bot_speaking or self._client_playing
+
+    def _ready_to_count_down(self) -> bool:
+        return not (self.presentation.paused or self._user_speaking or self._tutor_audible())
 
     def _already_seen(self, frame: Frame) -> bool:
         if frame.id in self._seen_ids or frame.broadcast_sibling_id in self._seen_ids:

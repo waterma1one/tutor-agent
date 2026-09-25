@@ -19,7 +19,7 @@ import {
     RTVIEvent,
 } from '@pipecat-ai/client-js';
 import { WebSocketTransport } from '@pipecat-ai/websocket-transport';
-import { resumePlayback, suspendPlayback } from './playback';
+import { resumePlayback, suspendPlayback, watchPlayback } from './playback';
 
 class WebsocketClientApp {
     private pcClient: PipecatClient | null = null;
@@ -27,6 +27,7 @@ class WebsocketClientApp {
     private disconnectBtn: HTMLButtonElement | null = null;
     private pauseBtn: HTMLButtonElement | null = null;
     private paused = false;
+    private stopWatchingPlayback: (() => void) | null = null;
     private statusSpan: HTMLElement | null = null;
     private debugLog: HTMLElement | null = null;
     private botAudio: HTMLAudioElement;
@@ -90,6 +91,19 @@ class WebsocketClientApp {
             client.sendClientMessage('pause');
         }
         this.setPaused(!this.paused);
+    }
+
+    /** Tell the server when the tutor's speech actually starts and ends here. */
+    private startWatchingPlayback(): void {
+        const client = this.pcClient;
+        if (!client || this.stopWatchingPlayback) return;
+        this.stopWatchingPlayback = watchPlayback(client, (playing) => {
+            try {
+                client.sendClientMessage(playing ? 'playback-started' : 'playback-idle');
+            } catch (e) {
+                console.warn('Could not report playback state', e);
+            }
+        });
     }
 
     private setPaused(paused: boolean): void {
@@ -200,11 +214,14 @@ class WebsocketClientApp {
                         if (this.disconnectBtn) this.disconnectBtn.disabled = true;
                         if (this.pauseBtn) this.pauseBtn.disabled = true;
                         this.setPaused(false);
+                        this.stopWatchingPlayback?.();
+                        this.stopWatchingPlayback = null;
                         this.log('Client disconnected');
                     },
                     onBotReady: (data) => {
                         this.log(`Bot ready: ${JSON.stringify(data)}`);
                         this.setupMediaTracks();
+                        this.startWatchingPlayback();
                     },
                     onUserTranscript: (data) => {
                         if (data.final) {

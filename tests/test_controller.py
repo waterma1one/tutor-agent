@@ -312,3 +312,88 @@ async def test_stop_cancels_the_pending_countdown():
     await h.controller.stop()
     await settle()
     assert len(h.queued) == 1
+
+
+async def test_waits_for_the_student_to_hear_the_end_before_advancing():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.on_playback(True)
+    await h.push(BotStartedSpeakingFrame())
+    # The server has sent everything, but the browser is still playing it.
+    await h.push(BotStoppedSpeakingFrame())
+    await settle()
+    assert h.controller.presentation.slide == 1
+
+    await h.controller.on_playback(False)
+    await settle()
+    assert h.controller.presentation.slide == 2
+
+
+async def test_playback_gap_mid_speech_does_not_advance():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.on_playback(True)
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.on_playback(False)
+    await settle()
+    assert h.controller.presentation.slide == 1
+
+    # Browser already drained when the server finishes, so count down now.
+    await h.push(BotStoppedSpeakingFrame())
+    await settle()
+    assert h.controller.presentation.slide == 2
+
+
+async def test_resume_with_audio_still_queued_waits_for_playback():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.on_playback(True)
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.pause()
+    await h.push(BotStoppedSpeakingFrame())
+    await h.controller.resume()
+    await settle()
+    assert h.controller.presentation.slide == 1
+
+    await h.controller.on_playback(False)
+    await settle()
+    assert h.controller.presentation.slide == 2
+
+
+async def test_playback_ending_while_paused_counts_down_on_resume():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.on_playback(True)
+    await h.push(BotStartedSpeakingFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await h.controller.pause()
+    await h.controller.on_playback(False)
+    await settle()
+    assert h.controller.presentation.slide == 1
+
+    await h.controller.resume()
+    await settle()
+    assert h.controller.presentation.slide == 2
+
+
+async def test_playback_stopped_by_an_interruption_waits_for_the_student():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.on_playback(True)
+    await h.push(BotStartedSpeakingFrame())
+    await h.push(UserStartedSpeakingFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await h.controller.on_playback(False)
+    await settle()
+    assert len(h.queued) == 1
+
+
+async def test_playback_reports_after_stop_are_ignored():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.on_playback(True)
+    await h.push(BotStoppedSpeakingFrame())
+    await h.controller.stop()
+    await h.controller.on_playback(False)
+    await settle()
+    assert len(h.queued) == 1

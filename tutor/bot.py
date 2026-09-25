@@ -136,6 +136,10 @@ async def run_bot(websocket) -> None:
                 await controller.pause()
             case "resume":
                 await controller.resume()
+            case "playback-started":
+                await controller.on_playback(True)
+            case "playback-idle":
+                await controller.on_playback(False)
             case _:
                 logger.warning(f"Ignoring unknown client message: {message.type}")
 
