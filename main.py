@@ -4,30 +4,24 @@
 # SPDX-License-Identifier: BSD 2-Clause License
 #
 import asyncio
-from contextlib import asynccontextmanager
-from typing import Any, Dict
+import os
+import sys
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, WebSocket
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 
-# Load environment variables
 load_dotenv(override=True)
 
-from agent import run_bot
+from tutor.bot import run_bot  # noqa: E402  (needs env loaded first)
+from tutor.slides import DECK  # noqa: E402
 
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", "7860"))
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Handles FastAPI startup and shutdown."""
-    yield  # Run app
-
-
-# Initialize FastAPI app with lifespan manager
-app = FastAPI(lifespan=lifespan)
-
-# Configure CORS to allow requests from any origin
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,28 +34,33 @@ app.add_middleware(
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("WebSocket connection accepted")
+    logger.info("WebSocket connection accepted")
     try:
         await run_bot(websocket)
-    except Exception as e:
-        print(f"Exception in run_bot: {e}")
+    except Exception:
+        logger.exception("Session ended with an error")
 
 
 @app.post("/connect")
-async def bot_connect(request: Request) -> Dict[Any, Any]:
-    return {"ws_url": "ws://localhost:7860/ws"}
+async def bot_connect() -> dict:
+    return {"ws_url": f"ws://localhost:{PORT}/ws"}
+
+
+@app.get("/slides")
+async def slides() -> list[dict]:
+    return [slide.to_dict() for slide in DECK]
+
+
+def check_env() -> None:
+    if not os.getenv("OPENAI_API_KEY"):
+        logger.error("OPENAI_API_KEY is not set. Add it to .env (see README).")
+        sys.exit(1)
 
 
 async def main():
-    tasks = []
-    try:
-        config = uvicorn.Config(app, host="0.0.0.0", port=7860)
-        server = uvicorn.Server(config)
-        tasks.append(server.serve())
-
-        await asyncio.gather(*tasks)
-    except asyncio.CancelledError:
-        print("Tasks cancelled (probably due to shutdown).")
+    check_env()
+    server = uvicorn.Server(uvicorn.Config(app, host=HOST, port=PORT))
+    await server.serve()
 
 
 if __name__ == "__main__":
