@@ -1,4 +1,4 @@
-from pipecat.frames.frames import OutputTransportMessageFrame, TTSAudioRawFrame
+from pipecat.frames.frames import ErrorFrame, OutputTransportMessageFrame, TTSAudioRawFrame
 from pipecat.services.openai.tts import OpenAITTSService
 
 from tutor.captions import CaptionedTTSService
@@ -41,3 +41,18 @@ async def test_blank_text_sends_no_caption(monkeypatch):
     frames = await collect(service, "   ")
 
     assert not any(isinstance(frame, OutputTransportMessageFrame) for frame in frames)
+
+
+async def failing_run_tts(self, text, context_id):
+    yield ErrorFrame(error="TTS failed")
+
+
+async def test_sentence_that_fails_to_speak_sends_no_caption(monkeypatch):
+    monkeypatch.setattr(OpenAITTSService, "run_tts", failing_run_tts)
+    service = CaptionedTTSService(
+        api_key="test", settings=CaptionedTTSService.Settings(voice="coral")
+    )
+
+    frames = await collect(service, "Earthquakes shake the ground.")
+
+    assert [type(frame) for frame in frames] == [ErrorFrame]
