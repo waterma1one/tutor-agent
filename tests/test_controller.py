@@ -482,4 +482,9 @@ async def test_lesson_state_echoes_the_request_it_answers():
     await h.controller.resume(request="r1")
     assert h.notes[-1] == {**h.notes[-1], "request": "r1", "paused": False}
     await h.controller.request_slide(3, request="g1")
+    await h.push(InterruptionFrame())
     assert h.notes[-1]["request"] == "g1"
+    assert h.notes[-1]["slide"] == 3
+    await h.controller.request_slide(99, request="g2")
+    assert h.notes[-1]["request"] == "g2"
+    assert h.notes[-1]["slide"] == 3
