@@ -88,6 +88,7 @@ async def test_start_presents_first_slide_and_notifies():
         "total": 8,
         "paused": False,
         "request": None,
+        "refused": False,
     }
 
 
@@ -430,6 +431,7 @@ async def test_student_jump_interrupts_then_presents_the_slide():
     await h.push(InterruptionFrame(), hops=3)
     assert h.last_direction().startswith(f"{STAGE_MARKER} Present slide 4")
     assert h.notes[-1]["slide"] == 4
+    assert not h.notes[-1]["refused"]
 
 
 async def test_interrupted_speech_ending_does_not_skip_the_jumped_slide():
@@ -472,6 +474,7 @@ async def test_jump_to_a_missing_slide_is_refused():
     await h.controller.request_slide(99)
     assert len(h.queued) == 1
     assert h.notes[-1]["slide"] == 1
+    assert h.notes[-1]["refused"]
 
 
 async def test_lesson_state_echoes_the_request_it_answers():
@@ -504,6 +507,7 @@ async def test_typed_question_interrupts_then_goes_to_the_tutor():
     assert frame.messages == [{"role": "user", "content": "Why do volcanoes erupt?"}]
     assert frame.run_llm
     assert h.notes[-1]["request"] == "q1"
+    assert not h.notes[-1]["refused"]
     assert h.controller.presentation.slide == 1
 
 
@@ -533,6 +537,7 @@ async def test_blank_typed_question_is_refused(text):
     await h.controller.ask(text, request="q1")
     assert len(h.queued) == 1
     assert h.notes[-1]["request"] == "q1"
+    assert h.notes[-1]["refused"]
 
 
 async def test_typed_question_while_paused_is_refused():
@@ -560,6 +565,7 @@ async def test_jump_while_a_question_is_pending_is_refused():
     await h.controller.ask("Why do volcanoes erupt?", request="q1")
     await h.controller.request_slide(4, request="g1")
     assert h.notes[-1]["request"] == "g1"
+    assert h.notes[-1]["refused"]
     assert h.notes[-1]["slide"] == 1
     assert sum(isinstance(f, InterruptionWorkerFrame) for f in h.queued) == 1
 
@@ -576,6 +582,7 @@ async def test_question_while_a_jump_is_pending_is_refused():
     await h.controller.request_slide(4, request="g1")
     await h.controller.ask("Why?", request="q1")
     assert h.notes[-1]["request"] == "q1"
+    assert h.notes[-1]["refused"]
     assert sum(isinstance(f, InterruptionWorkerFrame) for f in h.queued) == 1
 
     await h.push(InterruptionFrame())

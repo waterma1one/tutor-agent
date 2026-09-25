@@ -99,8 +99,12 @@ class LessonController(BaseObserver):
         # speaking event is handled once.
         self._seen_ids: deque[int] = deque(maxlen=64)
 
-    def snapshot(self, request: str | None = None) -> dict:
-        """The lesson state for the UI. `request` names the client request it answers."""
+    def snapshot(self, request: str | None = None, *, refused: bool = False) -> dict:
+        """The lesson state for the UI.
+
+        `request` names the client request it answers, and `refused` says the
+        request was turned down, which the state alone cannot always show.
+        """
         return {
             "type": "lesson-state",
             "mode": self.presentation.mode.value,
@@ -108,6 +112,7 @@ class LessonController(BaseObserver):
             "total": len(self.deck),
             "paused": self.presentation.paused,
             "request": request,
+            "refused": refused,
         }
 
     async def start(self) -> None:
@@ -155,7 +160,7 @@ class LessonController(BaseObserver):
             return
         if self._requests_blocked() or not 1 <= number <= len(self.deck):
             logger.info(f"Refused jump to slide {number}")
-            await self._notify(self.snapshot(request))
+            await self._notify(self.snapshot(request, refused=True))
             return
         await self._interrupt_then(partial(self._jump, number, request))
 
@@ -171,7 +176,7 @@ class LessonController(BaseObserver):
         question = text.strip()[: self.MAX_QUESTION_CHARS] if isinstance(text, str) else ""
         if self._requests_blocked() or not question:
             logger.info("Refused typed question")
-            await self._notify(self.snapshot(request))
+            await self._notify(self.snapshot(request, refused=True))
             return
         self.presentation.on_user_spoke()
         await self._interrupt_then(partial(self._put_question, question, request))
