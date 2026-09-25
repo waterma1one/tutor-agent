@@ -1,6 +1,7 @@
 import { loadSlides, Session } from './session';
 import { Store } from './store';
 import { mountCaptions } from './ui/captions';
+import { mountAsk } from './ui/ask';
 import { mountControls } from './ui/controls';
 import { mountLanding } from './ui/landing';
 import { mountScreens } from './ui/screens';
@@ -21,6 +22,7 @@ mountControls(store, {
     togglePause: () => void session.togglePause(),
     leave: () => void session.leave(),
 });
+mountAsk(store, (text) => session.ask(text));
 mountSeismograph(store, () => session.levels());
 
 loadSlides()

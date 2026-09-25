@@ -47,6 +47,7 @@ export class Session {
     private pendingPause: string | null = null;
     /** The jump request still waiting for its reply, and its slide. */
     private pendingJump: { id: string; slide: number } | null = null;
+    private pendingQuestion: string | null = null;
     private nextLine = 1;
     /** The tutor line captions are appending to; a new one starts per reply. */
     private tutorLine: Line | null = null;
@@ -170,6 +171,20 @@ export class Session {
         if (!id) this.store.set({ pendingSlide: null });
     }
 
+    /** Puts a typed question to the tutor, cutting off what it is saying. */
+    ask(text: string): boolean {
+        const client = this.client;
+        const state = this.store.get();
+        if (!client || state.paused || state.slide === null || this.pendingJump) return false;
+        const id = this.send('ask', { text });
+        if (!id) return false;
+        this.pendingQuestion = id;
+        this.addStudentLine(text);
+        this.captions.clear();
+        void interruptPlayback(client);
+        return true;
+    }
+
     /** Current voice levels, 0 to 1, for the voice meter. The mic reads 0 while paused. */
     levels(): { tutor: number; student: number } {
         const client = this.client;
@@ -202,6 +217,15 @@ export class Session {
             this.pendingPause = null;
             if (state.paused !== this.store.get().paused) this.syncLocalPause(state.paused);
             patch.paused = state.paused;
+        }
+
+        if (this.pendingQuestion && state.request === this.pendingQuestion) {
+            // The server only turns a question down while paused.
+            if (state.paused && this.client) {
+                releaseInterruption(this.client);
+                this.events.onProblem('Your question was not sent because the class is paused.');
+            }
+            this.pendingQuestion = null;
         }
 
         if (this.pendingJump && state.request === this.pendingJump.id) {
@@ -255,6 +279,7 @@ export class Session {
         this.client = null;
         this.pendingPause = null;
         this.pendingJump = null;
+        this.pendingQuestion = null;
         const wasLive = this.store.get().phase === 'live';
         this.store.set({
             phase: wasLive ? 'ended' : this.store.get().phase,

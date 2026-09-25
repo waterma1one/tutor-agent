@@ -46,7 +46,22 @@
           <ul class="plate-bullets"></ul>
         </article>
         <aside class="captions" aria-label="Captions">
-          <ol id="captions" class="captions-list"></ol>
+          <div class="captions-scroll">
+            <ol id="captions" class="captions-list"></ol>
+          </div>
+          <form id="ask-form" class="ask">
+            <label class="visually-hidden" for="ask-input">Type a question for Terra</label>
+            <input
+              id="ask-input"
+              class="ask-input"
+              type="text"
+              maxlength="500"
+              autocomplete="off"
+              placeholder="Or type a question…"
+              disabled
+            />
+            <button id="ask-btn" class="button button-quiet ask-send" type="submit" disabled>Ask</button>
+          </form>
         </aside>
       </section>
 
