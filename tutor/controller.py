@@ -67,6 +67,7 @@ class LessonController(BaseObserver):
         speech_gate: SpeechGate,
         idle_secs: float = 2.0,
         no_reply_secs: float = 6.0,
+        reply_timeout_secs: float = 15.0,
     ):
         super().__init__()
         self.deck = deck
@@ -94,6 +95,11 @@ class LessonController(BaseObserver):
         # Set after that until the tutor starts replying, so the end of the
         # speech that was cut off does not start a countdown.
         self._awaiting_new_speech = False
+        # Stops that wait if the reply never makes a sound (an LLM or TTS
+        # error), which would otherwise freeze the lesson. Long, so a slow
+        # reply is not answered twice.
+        self._reply_timeout_secs = reply_timeout_secs
+        self._reply_timeout_task: asyncio.Task | None = None
         # Observers see a frame once per processor hop, and the output transport
         # pushes paired copies up and downstream. Remember recent ids so each
         # speaking event is handled once.
@@ -122,6 +128,7 @@ class LessonController(BaseObserver):
         """End the lesson for good: stop timers and ignore everything after."""
         self._ended = True
         self._cancel_idle()
+        self._cancel_reply_timeout()
 
     async def pause(self, request: str | None = None) -> None:
         if self._ended:
@@ -223,6 +230,7 @@ class LessonController(BaseObserver):
             if self._after_interruption:
                 action, self._after_interruption = self._after_interruption, None
                 self._awaiting_new_speech = True
+                self._reply_timeout_task = asyncio.create_task(self._on_reply_timeout())
                 await action()
             return
 
@@ -236,6 +244,7 @@ class LessonController(BaseObserver):
         if isinstance(frame, BotStartedSpeakingFrame):
             self._bot_speaking = True
             self._awaiting_new_speech = False
+            self._cancel_reply_timeout()
             self._cancel_idle()
         elif isinstance(frame, BotStoppedSpeakingFrame):
             self._bot_speaking = False
@@ -308,6 +317,19 @@ class LessonController(BaseObserver):
         self._idle_task = None
         self._idle_delay = None
         await self._perform(self.presentation.on_bot_idle())
+
+    def _cancel_reply_timeout(self) -> None:
+        if self._reply_timeout_task and not self._reply_timeout_task.done():
+            self._reply_timeout_task.cancel()
+        self._reply_timeout_task = None
+
+    async def _on_reply_timeout(self) -> None:
+        await asyncio.sleep(self._reply_timeout_secs)
+        self._reply_timeout_task = None
+        logger.warning("The reply to a UI request never spoke; carrying on")
+        self._awaiting_new_speech = False
+        if self._ready_to_count_down():
+            self._schedule_idle(self._idle_secs)
 
     async def _perform(self, action: Action | None, request: str | None = None) -> None:
         # A tool call or countdown already in flight can land after the end.

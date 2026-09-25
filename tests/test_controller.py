@@ -36,7 +36,7 @@ class FakeGate:
 
 
 class Harness:
-    def __init__(self, deck=DECK):
+    def __init__(self, deck=DECK, reply_timeout=60.0):
         self.queued: list = []
         self.notes: list[dict] = []
         self.gate = FakeGate()
@@ -47,6 +47,7 @@ class Harness:
             speech_gate=self.gate,
             idle_secs=IDLE,
             no_reply_secs=IDLE,
+            reply_timeout_secs=reply_timeout,
         )
 
     async def _queue(self, frames):
@@ -588,3 +589,47 @@ async def test_question_while_a_jump_is_pending_is_refused():
     await h.push(InterruptionFrame())
     assert h.last_direction().startswith(f"{STAGE_MARKER} Present slide 4")
     assert h.notes[-1]["request"] == "g1"
+
+
+async def test_jump_whose_reply_never_speaks_does_not_freeze_the_lesson():
+    h = Harness(reply_timeout=IDLE)
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.request_slide(4)
+    await h.push(InterruptionFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    queued = len(h.queued)
+    await settle()
+    assert len(h.queued) == queued + 1
+    assert h.controller.presentation.slide == 5
+
+
+async def test_reply_timeout_during_a_pause_lets_the_lesson_resume():
+    h = Harness(reply_timeout=IDLE)
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.ask("Why?")
+    await h.push(InterruptionFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await h.controller.pause()
+    await settle()
+    queued = len(h.queued)
+    await h.controller.resume()
+    await settle()
+    assert len(h.queued) == queued + 1
+    assert "has been answered" in h.last_direction()
+
+
+async def test_timeout_of_a_reply_that_spoke_does_not_advance_again():
+    h = Harness(reply_timeout=IDLE * 4)
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.request_slide(4)
+    await h.push(InterruptionFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await h.push(BotStartedSpeakingFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await asyncio.sleep(IDLE * 2)
+    assert h.controller.presentation.slide == 5
+    await asyncio.sleep(IDLE * 6)
+    assert h.controller.presentation.slide == 5
