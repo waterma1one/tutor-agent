@@ -28,9 +28,16 @@ from tutor.slides import DECK
 
 LLM_MODEL = os.getenv("TUTOR_LLM_MODEL", "gpt-4o")
 TTS_VOICE = os.getenv("TUTOR_TTS_VOICE", "coral")
+# Every sentence is a separate TTS request, so the style has to pin the voice down
+# tightly or its pitch and energy wander from one request to the next.
 TTS_STYLE = (
-    "A warm, encouraging primary school teacher. Speak clearly at a relaxed pace, "
-    "with gentle enthusiasm."
+    "Voice: one warm primary school teacher, the same person in every sentence. "
+    "Pitch: mid-range and steady; do not rise or drop between sentences. "
+    "Pacing: relaxed and even, about the same speed throughout, with short natural pauses "
+    "at commas and full stops. "
+    "Energy: gently enthusiastic and constant; never excited, dramatic, whispery or flat. "
+    "Tone: friendly and reassuring, even when describing dangerous events. "
+    "Pronunciation: clear and unhurried, for children listening in a classroom."
 )
 
 GO_TO_SLIDE = FunctionSchema(
