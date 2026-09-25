@@ -21,6 +21,7 @@ from pipecat.frames.frames import (
     FunctionCallResultProperties,
     InterruptionFrame,
     InterruptionWorkerFrame,
+    LLMMessagesAppendFrame,
     LLMMessagesTransformFrame,
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
@@ -53,6 +54,9 @@ _WATCHED = (
 
 
 class LessonController(BaseObserver):
+    # Long enough for any real question, short enough to keep a paste out of context.
+    MAX_QUESTION_CHARS = 500
+
     def __init__(
         self,
         deck: Sequence[Slide],
@@ -83,12 +87,12 @@ class LessonController(BaseObserver):
         self._idle_delay: float | None = None
         # The countdown that was running when the lesson was paused.
         self._paused_delay: float | None = None
-        # A slide the student picked in the UI, presented once the tutor's
-        # current speech has been cut off.
-        self._pending_jump: tuple[int, str | None] | None = None
-        # Set after a jump until the tutor starts the new slide, so the end of
-        # the speech the jump cut off does not start a countdown.
-        self._awaiting_jump_speech = False
+        # What the student asked for in the UI (a slide jump or a typed
+        # question), carried out once the tutor's current speech is cut off.
+        self._after_interruption: Callable[[], Awaitable[None]] | None = None
+        # Set after that until the tutor starts replying, so the end of the
+        # speech that was cut off does not start a countdown.
+        self._awaiting_new_speech = False
         # Observers see a frame once per processor hop, and the output transport
         # pushes paired copies up and downstream. Remember recent ids so each
         # speaking event is handled once.
@@ -150,9 +154,23 @@ class LessonController(BaseObserver):
             logger.info(f"Refused jump to slide {number}")
             await self._notify(self.snapshot(request))
             return
-        self._pending_jump = (number, request)
-        self._cancel_idle()
-        await self._queue_frames([InterruptionWorkerFrame()])
+        await self._interrupt_then(partial(self._jump, number, request))
+
+    async def ask(self, text: object, request: str | None = None) -> None:
+        """The student typed a question: cut the tutor off and put it to them.
+
+        It is handled like a spoken question, so once answered the tutor bridges
+        back to the slide. Blank questions and questions while paused are refused.
+        """
+        if self._ended:
+            return
+        question = text.strip()[: self.MAX_QUESTION_CHARS] if isinstance(text, str) else ""
+        if self.presentation.paused or not question:
+            logger.info("Refused typed question")
+            await self._notify(self.snapshot(request))
+            return
+        self.presentation.on_user_spoke()
+        await self._interrupt_then(partial(self._put_question, question, request))
 
     async def on_playback(self, playing: bool) -> None:
         """Client report: its speaker queue started playing or ran dry."""
@@ -193,10 +211,10 @@ class LessonController(BaseObserver):
             await self.stop()
             return
         if isinstance(frame, InterruptionFrame):
-            if self._pending_jump:
-                (number, request), self._pending_jump = self._pending_jump, None
-                self._awaiting_jump_speech = True
-                await self._perform(self.presentation.go_to(number), request)
+            if self._after_interruption:
+                action, self._after_interruption = self._after_interruption, None
+                self._awaiting_new_speech = True
+                await action()
             return
 
         # Track the student's turn even while paused, so a turn that ends
@@ -208,7 +226,7 @@ class LessonController(BaseObserver):
 
         if isinstance(frame, BotStartedSpeakingFrame):
             self._bot_speaking = True
-            self._awaiting_jump_speech = False
+            self._awaiting_new_speech = False
             self._cancel_idle()
         elif isinstance(frame, BotStoppedSpeakingFrame):
             self._bot_speaking = False
@@ -234,9 +252,26 @@ class LessonController(BaseObserver):
         return not (
             self.presentation.paused
             or self._user_speaking
-            or self._awaiting_jump_speech
+            or self._awaiting_new_speech
             or self._tutor_audible()
         )
+
+    async def _interrupt_then(self, action: Callable[[], Awaitable[None]]) -> None:
+        # Acting only once the interruption is observed keeps it from
+        # cancelling the response the action starts.
+        self._after_interruption = action
+        self._cancel_idle()
+        await self._queue_frames([InterruptionWorkerFrame()])
+
+    async def _jump(self, number: int, request: str | None) -> None:
+        await self._perform(self.presentation.go_to(number), request)
+
+    async def _put_question(self, question: str, request: str | None) -> None:
+        logger.info(f"Typed question: {question}")
+        await self._queue_frames(
+            [LLMMessagesAppendFrame([{"role": "user", "content": question}], run_llm=True)]
+        )
+        await self._notify(self.snapshot(request))
 
     def _already_seen(self, frame: Frame) -> bool:
         if frame.id in self._seen_ids or frame.broadcast_sibling_id in self._seen_ids:

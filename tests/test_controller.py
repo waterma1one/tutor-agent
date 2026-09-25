@@ -9,6 +9,7 @@ from pipecat.frames.frames import (
     EndFrame,
     InterruptionFrame,
     InterruptionWorkerFrame,
+    LLMMessagesAppendFrame,
     LLMMessagesTransformFrame,
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
@@ -488,3 +489,65 @@ async def test_lesson_state_echoes_the_request_it_answers():
     await h.controller.request_slide(99, request="g2")
     assert h.notes[-1]["request"] == "g2"
     assert h.notes[-1]["slide"] == 3
+
+
+async def test_typed_question_interrupts_then_goes_to_the_tutor():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.ask("  Why do volcanoes erupt?  ", request="q1")
+    assert isinstance(h.queued[-1], InterruptionWorkerFrame)
+
+    await h.push(InterruptionFrame(), hops=3)
+    frame = h.queued[-1]
+    assert isinstance(frame, LLMMessagesAppendFrame)
+    assert frame.messages == [{"role": "user", "content": "Why do volcanoes erupt?"}]
+    assert frame.run_llm
+    assert h.notes[-1]["request"] == "q1"
+    assert h.controller.presentation.slide == 1
+
+
+async def test_after_a_typed_answer_the_tutor_returns_to_the_slide():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.ask("Why do volcanoes erupt?")
+    await h.push(InterruptionFrame())
+    # The cut-off speech ending must not move the lesson on before the answer.
+    await h.push(BotStoppedSpeakingFrame())
+    await h.controller.on_playback(False)
+    await settle()
+    assert isinstance(h.queued[-1], LLMMessagesAppendFrame)
+
+    await h.push(BotStartedSpeakingFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await settle()
+    assert "has been answered" in h.last_direction()
+    assert h.controller.presentation.slide == 1
+
+
+@pytest.mark.parametrize("text", ["", "   ", None, 42])
+async def test_blank_typed_question_is_refused(text):
+    h = Harness()
+    await h.controller.start()
+    await h.controller.ask(text, request="q1")
+    assert len(h.queued) == 1
+    assert h.notes[-1]["request"] == "q1"
+
+
+async def test_typed_question_while_paused_is_refused():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.pause()
+    await h.controller.ask("Why?", request="q1")
+    await h.push(InterruptionFrame())
+    assert len(h.queued) == 1
+    assert h.notes[-1]["request"] == "q1"
+
+
+async def test_long_typed_question_is_cut_to_the_limit():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.ask("a" * 5000)
+    await h.push(InterruptionFrame())
+    assert len(h.queued[-1].messages[0]["content"]) == LessonController.MAX_QUESTION_CHARS

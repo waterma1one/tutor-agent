@@ -153,6 +153,8 @@ async def run_bot(websocket) -> None:
                     logger.warning(f"Ignoring go-to-slide without a slide number: {data}")
                     return
                 await controller.request_slide(number, request)
+            case "ask":
+                await controller.ask(data.get("text"), request)
             case "playback-started":
                 await controller.on_playback(True)
             case "playback-idle":
