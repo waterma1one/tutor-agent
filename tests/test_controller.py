@@ -118,10 +118,46 @@ async def test_user_question_then_silence_returns_to_same_slide():
     h = Harness()
     await h.controller.start()
     await h.push(UserStartedSpeakingFrame())
+    await h.push(UserStoppedSpeakingFrame())
     await h.push(BotStoppedSpeakingFrame())
     await settle()
     assert h.controller.presentation.slide == 1
     assert "back to" in h.last_direction()
+
+
+async def test_interrupted_tutor_waits_while_the_student_is_talking():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.push(UserStartedSpeakingFrame())
+    # The interruption stops the tutor, but the student is still mid-sentence.
+    await h.push(BotStoppedSpeakingFrame())
+    await settle()
+    assert len(h.queued) == 1
+
+
+async def test_student_finishing_after_interruption_gets_one_follow_up():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.push(UserStartedSpeakingFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await h.push(UserStoppedSpeakingFrame())
+    await settle()
+    assert len(h.queued) == 2
+    assert "back to" in h.last_direction()
+
+
+async def test_student_turn_ending_during_pause_does_not_stall_the_lesson():
+    h = Harness()
+    await h.controller.start()
+    await h.push(UserStartedSpeakingFrame())
+    await h.controller.pause()
+    await h.push(UserStoppedSpeakingFrame())
+    await h.controller.resume()
+    await h.push(BotStoppedSpeakingFrame())
+    await settle()
+    assert len(h.queued) == 2
 
 
 async def test_go_to_slide_tool_defers_direction_until_context_updated():

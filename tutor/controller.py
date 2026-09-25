@@ -67,6 +67,7 @@ class LessonController(BaseObserver):
         self._notify = notify
         self._speech_gate = speech_gate
         self._bot_speaking = False
+        self._user_speaking = False
         self._idle_secs = idle_secs
         self._no_reply_secs = no_reply_secs
         self._idle_task: asyncio.Task | None = None
@@ -134,12 +135,21 @@ class LessonController(BaseObserver):
         if not isinstance(frame, _WATCHED) or self._already_seen(frame):
             return
 
+        # Track the student's turn even while paused, so a turn that ends
+        # during a pause does not leave the flag stuck.
+        if isinstance(frame, UserStartedSpeakingFrame):
+            self._user_speaking = True
+        elif isinstance(frame, UserStoppedSpeakingFrame):
+            self._user_speaking = False
+
         if isinstance(frame, BotStartedSpeakingFrame):
             self._bot_speaking = True
             self._cancel_idle()
         elif isinstance(frame, BotStoppedSpeakingFrame):
             self._bot_speaking = False
-            if not self.presentation.paused:
+            # An interruption stops the tutor while the student is still
+            # talking; their UserStoppedSpeaking starts the countdown instead.
+            if not self.presentation.paused and not self._user_speaking:
                 self._schedule_idle(self._idle_secs)
         elif self.presentation.paused:
             # Mic input is muted while paused; ignore any stray user turn.
