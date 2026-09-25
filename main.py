@@ -14,7 +14,8 @@ from loguru import logger
 
 load_dotenv(override=True)
 
-from tutor.bot import run_bot  # noqa: E402  (needs env loaded first)
+# Imported after load_dotenv: tutor.bot reads its settings at import time.
+from tutor.bot import run_bot  # noqa: E402
 from tutor.slides import DECK  # noqa: E402
 
 # Each class spends OpenAI credit, so the server listens on this machine only
@@ -47,7 +48,7 @@ async def websocket_endpoint(websocket: WebSocket):
     logger.info("WebSocket connection accepted")
     try:
         await run_bot(websocket)
-    except Exception:
+    except Exception:  # noqa: BLE001  (one broken class must not take the server down)
         logger.exception("Session ended with an error")
 
 

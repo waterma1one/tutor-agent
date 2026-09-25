@@ -47,7 +47,7 @@ def present_slide(slide: Slide, total: int) -> str:
         else "Open with a short, natural transition from what came before."
     )
     return (
-        f"{STAGE_MARKER} Present slide {slide.number} of {total}: \"{slide.title}\". "
+        f'{STAGE_MARKER} Present slide {slide.number} of {total}: "{slide.title}". '
         f"{opening} Cover this: {slide.notes} "
         "Speak for about 60 to 90 words. Do not ask whether to continue."
     )
@@ -56,7 +56,7 @@ def present_slide(slide: Slide, total: int) -> str:
 def continue_slide(slide: Slide) -> str:
     return (
         f"{STAGE_MARKER} The student's question has been answered. Bridge back smoothly "
-        f"to \"{slide.title}\" with a phrase like \"Now, back to...\" and cover any points "
+        f'to "{slide.title}" with a phrase like "Now, back to..." and cover any points '
         f"from this slide you have not said yet: {slide.notes} "
         "Do not repeat what you already said. If everything was covered, give a "
         "one-sentence recap instead."

@@ -102,9 +102,7 @@ async def run_bot(websocket) -> None:
         await task.rtvi.send_server_message(state)
 
     gate = PauseGate()
-    controller = LessonController(
-        DECK, queue_frames=queue_frames, notify=notify, speech_gate=gate
-    )
+    controller = LessonController(DECK, queue_frames=queue_frames, notify=notify, speech_gate=gate)
     llm.register_function("go_to_slide", controller.handle_go_to_slide)
 
     aggregators = LLMContextAggregatorPair(

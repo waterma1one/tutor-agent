@@ -22,25 +22,26 @@ def client(monkeypatch):
 
 
 def test_websocket_from_the_frontend_starts_a_class(client):
-    with client.websocket_connect("/ws", headers={"origin": "http://localhost:5173"}) as ws:
-        with pytest.raises(WebSocketDisconnect):
-            ws.receive_bytes()
+    origin = {"origin": "http://localhost:5173"}
+    with client.websocket_connect("/ws", headers=origin) as ws, pytest.raises(WebSocketDisconnect):
+        ws.receive_bytes()
     assert len(client.started) == 1
 
 
 def test_websocket_from_another_site_is_refused(client):
     # Any page the student visits could otherwise open a class on their key.
-    with pytest.raises(WebSocketDisconnect) as refused:
-        with client.websocket_connect("/ws", headers={"origin": "https://evil.example"}):
-            pass
+    with (
+        pytest.raises(WebSocketDisconnect) as refused,
+        client.websocket_connect("/ws", headers={"origin": "https://evil.example"}),
+    ):
+        pass
     assert refused.value.code == 1008
     assert client.started == []
 
 
 def test_websocket_without_an_origin_is_refused(client):
-    with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect("/ws"):
-            pass
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect("/ws"):
+        pass
     assert client.started == []
 
 

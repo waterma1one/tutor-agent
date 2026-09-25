@@ -42,6 +42,7 @@ class SpeechGate(Protocol):
 
     async def resume(self) -> None: ...
 
+
 _WATCHED = (
     BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
