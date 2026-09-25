@@ -121,6 +121,7 @@ export interface SpeechClock {
  * alongside it (captions) arrives early. Every chunk the player accepts extends
  * the queue from its end, or from now if the queue has run dry; the player's
  * AudioContext time is the playhead, and suspending it for a pause stops it.
+ * An interruption empties the queue, so the next speech starts from now.
  */
 export function trackQueuedSpeech(client: PipecatClient): SpeechClock | null {
     const p = player(client);
@@ -129,6 +130,7 @@ export function trackQueuedSpeech(client: PipecatClient): SpeechClock | null {
 
     let endsAt = 0;
     const add = p.add16BitPCM;
+    const interrupt = p.interrupt;
     p.add16BitPCM = function (data: unknown, trackId?: string) {
         const buffer: Int16Array | undefined = add.call(this, data, trackId);
         if (buffer) {
@@ -137,11 +139,16 @@ export function trackQueuedSpeech(client: PipecatClient): SpeechClock | null {
         }
         return buffer;
     };
+    p.interrupt = function (...args: unknown[]) {
+        endsAt = context.currentTime;
+        return interrupt.apply(this, args);
+    };
     return {
         now: () => context.currentTime,
         queuedUntil: () => Math.max(endsAt, context.currentTime),
         stop: () => {
             p.add16BitPCM = add;
+            p.interrupt = interrupt;
         },
     };
 }
