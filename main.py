@@ -9,8 +9,7 @@ import sys
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, WebSocket, status
 from loguru import logger
 
 load_dotenv(override=True)
@@ -18,21 +17,32 @@ load_dotenv(override=True)
 from tutor.bot import run_bot  # noqa: E402  (needs env loaded first)
 from tutor.slides import DECK  # noqa: E402
 
-HOST = os.getenv("HOST", "0.0.0.0")
+# Each class spends OpenAI credit, so the server listens on this machine only
+# unless HOST says otherwise.
+HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "7860"))
 
+# The frontend reaches /connect and /slides through the Vite proxy, so plain
+# HTTP needs no CORS. The websocket goes direct, and browsers let any page open
+# a websocket to localhost, so it only accepts pages from these origins.
+DEFAULT_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+
+
+def allowed_origins() -> set[str]:
+    raw = os.getenv("ALLOWED_ORIGINS", DEFAULT_ORIGINS)
+    return {origin.strip() for origin in raw.split(",") if origin.strip()}
+
+
 app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    origin = websocket.headers.get("origin")
+    if origin not in allowed_origins():
+        logger.warning(f"Refused websocket from origin {origin!r}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
     await websocket.accept()
     logger.info("WebSocket connection accepted")
     try:
