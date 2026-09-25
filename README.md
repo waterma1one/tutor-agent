@@ -182,7 +182,7 @@ default.
 ## Tests
 
 ```shell
-uv run pytest -q                              # 93 tests
+uv run pytest -q                              # 95 tests
 uvx ruff check tutor main.py tests
 uvx ruff format --check tutor main.py tests
 cd frontend && npx -y yarn@1.22.22 build      # tsc + vite build
