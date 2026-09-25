@@ -246,10 +246,27 @@ async def test_user_speech_while_paused_is_ignored():
     await h.controller.start()
     await h.controller.pause()
     await h.push(UserStartedSpeakingFrame())
+    await h.push(UserStoppedSpeakingFrame())
     await h.controller.resume()
     await h.push(BotStoppedSpeakingFrame())
     await settle()
     assert h.controller.presentation.slide == 2
+
+
+async def test_resume_mid_question_waits_for_the_student_to_finish():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStoppedSpeakingFrame())
+    await h.push(UserStartedSpeakingFrame())
+    await h.controller.pause()
+    await h.controller.resume()
+    await settle()
+    # The question is still open, so the tutor must not talk over it.
+    assert len(h.queued) == 1
+
+    await h.push(UserStoppedSpeakingFrame())
+    await settle()
+    assert "back to" in h.last_direction()
 
 
 async def test_repeated_pause_and_resume_touch_the_gate_once():

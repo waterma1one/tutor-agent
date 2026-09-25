@@ -118,9 +118,10 @@ class LessonController(BaseObserver):
         if self.presentation.resume():
             await self._speech_gate.resume()
             # Held speech restarts the normal speaking/idle cycle. If the tutor
-            # was silent, restart the countdown that pausing interrupted; the
-            # longer no-reply wait must not shrink to the idle delay.
-            if not self._tutor_audible():
+            # was silent and the student is not mid-question, restart the
+            # countdown that pausing interrupted; the longer no-reply wait must
+            # not shrink to the idle delay.
+            if self._ready_to_count_down():
                 self._schedule_idle(self._paused_delay or self._idle_secs)
             self._paused_delay = None
         await self._notify(self.snapshot())
