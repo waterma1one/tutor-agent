@@ -7,6 +7,8 @@ from pipecat.frames.frames import (
     BotStoppedSpeakingFrame,
     CancelFrame,
     EndFrame,
+    InterruptionFrame,
+    InterruptionWorkerFrame,
     LLMMessagesTransformFrame,
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
@@ -84,6 +86,7 @@ async def test_start_presents_first_slide_and_notifies():
         "slide": 1,
         "total": 8,
         "paused": False,
+        "request": None,
     }
 
 
@@ -414,3 +417,69 @@ async def test_playback_reports_after_stop_are_ignored():
     await h.controller.on_playback(False)
     await settle()
     assert len(h.queued) == 1
+
+
+async def test_student_jump_interrupts_then_presents_the_slide():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.request_slide(4)
+    assert isinstance(h.queued[-1], InterruptionWorkerFrame)
+
+    await h.push(InterruptionFrame(), hops=3)
+    assert h.last_direction().startswith(f"{STAGE_MARKER} Present slide 4")
+    assert h.notes[-1]["slide"] == 4
+
+
+async def test_interrupted_speech_ending_does_not_skip_the_jumped_slide():
+    h = Harness()
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.request_slide(4)
+    await h.push(InterruptionFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await h.controller.on_playback(False)
+    await settle()
+    assert h.controller.presentation.slide == 4
+
+    await h.push(BotStartedSpeakingFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await settle()
+    assert h.controller.presentation.slide == 5
+
+
+async def test_interruption_without_a_jump_changes_nothing():
+    h = Harness()
+    await h.controller.start()
+    await h.push(InterruptionFrame())
+    assert len(h.queued) == 1
+
+
+async def test_jump_while_paused_is_refused():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.pause()
+    await h.controller.request_slide(4)
+    await h.push(InterruptionFrame())
+    assert len(h.queued) == 1
+    assert h.notes[-1]["slide"] == 1
+
+
+async def test_jump_to_a_missing_slide_is_refused():
+    h = Harness()
+    await h.controller.start()
+    await h.controller.request_slide(99)
+    assert len(h.queued) == 1
+    assert h.notes[-1]["slide"] == 1
+
+
+async def test_lesson_state_echoes_the_request_it_answers():
+    h = Harness()
+    await h.controller.start()
+    assert h.notes[-1]["request"] is None
+    await h.controller.pause(request="p1")
+    assert h.notes[-1]["request"] == "p1"
+    await h.controller.resume(request="r1")
+    assert h.notes[-1] == {**h.notes[-1], "request": "r1", "paused": False}
+    await h.controller.request_slide(3, request="g1")
+    assert h.notes[-1]["request"] == "g1"

@@ -131,11 +131,21 @@ async def run_bot(websocket) -> None:
 
     @task.rtvi.event_handler("on_client_message")
     async def on_client_message(rtvi, message):
+        data = message.data if isinstance(message.data, dict) else {}
+        # The client tags requests so it can match the lesson-state reply.
+        request = data.get("request")
         match message.type:
             case "pause":
-                await controller.pause()
+                await controller.pause(request)
             case "resume":
-                await controller.resume()
+                await controller.resume(request)
+            case "go-to-slide":
+                try:
+                    number = int(data.get("slide"))
+                except (TypeError, ValueError):
+                    logger.warning(f"Ignoring go-to-slide without a slide number: {data}")
+                    return
+                await controller.request_slide(number, request)
             case "playback-started":
                 await controller.on_playback(True)
             case "playback-idle":

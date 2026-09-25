@@ -19,6 +19,8 @@ from pipecat.frames.frames import (
     EndFrame,
     Frame,
     FunctionCallResultProperties,
+    InterruptionFrame,
+    InterruptionWorkerFrame,
     LLMMessagesTransformFrame,
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
@@ -44,6 +46,7 @@ _WATCHED = (
     BotStoppedSpeakingFrame,
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
+    InterruptionFrame,
     EndFrame,
     CancelFrame,
 )
@@ -80,18 +83,26 @@ class LessonController(BaseObserver):
         self._idle_delay: float | None = None
         # The countdown that was running when the lesson was paused.
         self._paused_delay: float | None = None
+        # A slide the student picked in the UI, presented once the tutor's
+        # current speech has been cut off.
+        self._pending_jump: Present | None = None
+        # Set after a jump until the tutor starts the new slide, so the end of
+        # the speech the jump cut off does not start a countdown.
+        self._awaiting_jump_speech = False
         # Observers see a frame once per processor hop, and the output transport
         # pushes paired copies up and downstream. Remember recent ids so each
         # speaking event is handled once.
         self._seen_ids: deque[int] = deque(maxlen=64)
 
-    def snapshot(self) -> dict:
+    def snapshot(self, request: str | None = None) -> dict:
+        """The lesson state for the UI. `request` names the client request it answers."""
         return {
             "type": "lesson-state",
             "mode": self.presentation.mode.value,
             "slide": self.presentation.slide,
             "total": len(self.deck),
             "paused": self.presentation.paused,
+            "request": request,
         }
 
     async def start(self) -> None:
@@ -102,7 +113,7 @@ class LessonController(BaseObserver):
         self._ended = True
         self._cancel_idle()
 
-    async def pause(self) -> None:
+    async def pause(self, request: str | None = None) -> None:
         if self._ended:
             return
         if self.presentation.pause():
@@ -110,9 +121,9 @@ class LessonController(BaseObserver):
             self._cancel_idle()
             await self._speech_gate.pause()
         # Always report back, so a client that asked too early is corrected.
-        await self._notify(self.snapshot())
+        await self._notify(self.snapshot(request))
 
-    async def resume(self) -> None:
+    async def resume(self, request: str | None = None) -> None:
         if self._ended:
             return
         if self.presentation.resume():
@@ -124,7 +135,23 @@ class LessonController(BaseObserver):
             if self._ready_to_count_down():
                 self._schedule_idle(self._paused_delay or self._idle_secs)
             self._paused_delay = None
-        await self._notify(self.snapshot())
+        await self._notify(self.snapshot(request))
+
+    async def request_slide(self, number: int, request: str | None = None) -> None:
+        """The student picked a slide in the UI: cut the tutor off and present it.
+
+        The slide is presented only once the interruption has passed through the
+        pipeline, so the interruption cannot cancel the new slide's response.
+        """
+        if self._ended:
+            return
+        if not self.presentation.paused and 1 <= number <= len(self.deck):
+            self._pending_jump = Present(number)
+            self._cancel_idle()
+            await self._queue_frames([InterruptionWorkerFrame()])
+        else:
+            logger.info(f"Refused jump to slide {number}")
+        await self._notify(self.snapshot(request))
 
     async def on_playback(self, playing: bool) -> None:
         """Client report: its speaker queue started playing or ran dry."""
@@ -164,6 +191,12 @@ class LessonController(BaseObserver):
         if isinstance(frame, (EndFrame, CancelFrame)):
             await self.stop()
             return
+        if isinstance(frame, InterruptionFrame):
+            if self._pending_jump:
+                jump, self._pending_jump = self._pending_jump, None
+                self._awaiting_jump_speech = True
+                await self._perform(self.presentation.go_to(jump.slide))
+            return
 
         # Track the student's turn even while paused, so a turn that ends
         # during a pause does not leave the flag stuck.
@@ -174,6 +207,7 @@ class LessonController(BaseObserver):
 
         if isinstance(frame, BotStartedSpeakingFrame):
             self._bot_speaking = True
+            self._awaiting_jump_speech = False
             self._cancel_idle()
         elif isinstance(frame, BotStoppedSpeakingFrame):
             self._bot_speaking = False
@@ -196,7 +230,12 @@ class LessonController(BaseObserver):
         return self._bot_speaking or self._client_playing
 
     def _ready_to_count_down(self) -> bool:
-        return not (self.presentation.paused or self._user_speaking or self._tutor_audible())
+        return not (
+            self.presentation.paused
+            or self._user_speaking
+            or self._awaiting_jump_speech
+            or self._tutor_audible()
+        )
 
     def _already_seen(self, frame: Frame) -> bool:
         if frame.id in self._seen_ids or frame.broadcast_sibling_id in self._seen_ids:
