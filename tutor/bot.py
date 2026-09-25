@@ -70,13 +70,16 @@ async def run_bot(websocket) -> None:
             serializer=ProtobufFrameSerializer(),
         ),
     )
-    stt = OpenAIRealtimeSTTService(api_key=api_key, model="gpt-4o-transcribe")
-    llm = OpenAILLMService(api_key=api_key, model=LLM_MODEL)
+    stt = OpenAIRealtimeSTTService(
+        api_key=api_key,
+        settings=OpenAIRealtimeSTTService.Settings(model="gpt-4o-transcribe"),
+    )
+    llm = OpenAILLMService(api_key=api_key, settings=OpenAILLMService.Settings(model=LLM_MODEL))
     tts = CaptionedTTSService(
         api_key=api_key,
-        model="gpt-4o-mini-tts",
-        voice=TTS_VOICE,
-        instructions=TTS_STYLE,
+        settings=CaptionedTTSService.Settings(
+            model="gpt-4o-mini-tts", voice=TTS_VOICE, instructions=TTS_STYLE
+        ),
     )
 
     context = LLMContext(

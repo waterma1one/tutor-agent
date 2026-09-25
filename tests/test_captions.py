@@ -15,7 +15,9 @@ async def collect(service, text):
 
 async def test_caption_goes_out_before_the_sentence_audio(monkeypatch):
     monkeypatch.setattr(OpenAITTSService, "run_tts", fake_run_tts)
-    service = CaptionedTTSService(api_key="test", voice="coral")
+    service = CaptionedTTSService(
+        api_key="test", settings=CaptionedTTSService.Settings(voice="coral")
+    )
 
     frames = await collect(service, "Earthquakes shake the ground.")
 
@@ -32,7 +34,9 @@ async def test_caption_goes_out_before_the_sentence_audio(monkeypatch):
 
 async def test_blank_text_sends_no_caption(monkeypatch):
     monkeypatch.setattr(OpenAITTSService, "run_tts", fake_run_tts)
-    service = CaptionedTTSService(api_key="test", voice="coral")
+    service = CaptionedTTSService(
+        api_key="test", settings=CaptionedTTSService.Settings(voice="coral")
+    )
 
     frames = await collect(service, "   ")
 
