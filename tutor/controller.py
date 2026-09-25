@@ -230,6 +230,7 @@ class LessonController(BaseObserver):
             if self._after_interruption:
                 action, self._after_interruption = self._after_interruption, None
                 self._awaiting_new_speech = True
+                self._cancel_reply_timeout()
                 self._reply_timeout_task = asyncio.create_task(self._on_reply_timeout())
                 await action()
             return

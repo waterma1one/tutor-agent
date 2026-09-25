@@ -620,6 +620,21 @@ async def test_reply_timeout_during_a_pause_lets_the_lesson_resume():
     assert "has been answered" in h.last_direction()
 
 
+async def test_second_jump_replaces_the_first_reply_timeout():
+    h = Harness(reply_timeout=IDLE * 10)
+    await h.controller.start()
+    await h.push(BotStartedSpeakingFrame())
+    await h.controller.request_slide(4)
+    await h.push(InterruptionFrame())
+    await h.push(BotStoppedSpeakingFrame())
+    await asyncio.sleep(IDLE * 5)
+    await h.controller.request_slide(6)
+    await h.push(InterruptionFrame())
+    # The first jump's timeout would have fired by now; only the second's counts.
+    await asyncio.sleep(IDLE * 8)
+    assert h.controller.presentation.slide == 6
+
+
 async def test_timeout_of_a_reply_that_spoke_does_not_advance_again():
     h = Harness(reply_timeout=IDLE * 4)
     await h.controller.start()
