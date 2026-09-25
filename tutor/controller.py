@@ -70,6 +70,9 @@ class LessonController(BaseObserver):
         self._idle_secs = idle_secs
         self._no_reply_secs = no_reply_secs
         self._idle_task: asyncio.Task | None = None
+        self._idle_delay: float | None = None
+        # The countdown that was running when the lesson was paused.
+        self._paused_delay: float | None = None
         # Observers see a frame once per processor hop, and the output transport
         # pushes paired copies up and downstream. Remember recent ids so each
         # speaking event is handled once.
@@ -88,20 +91,22 @@ class LessonController(BaseObserver):
         await self._perform(self.presentation.start())
 
     async def pause(self) -> None:
-        if not self.presentation.pause():
-            return
-        self._cancel_idle()
-        await self._speech_gate.pause()
+        if self.presentation.pause():
+            self._paused_delay = self._idle_delay
+            self._cancel_idle()
+            await self._speech_gate.pause()
+        # Always report back, so a client that asked too early is corrected.
         await self._notify(self.snapshot())
 
     async def resume(self) -> None:
-        if not self.presentation.resume():
-            return
-        await self._speech_gate.resume()
-        # Held speech restarts the normal speaking/idle cycle. If the tutor had
-        # already finished, nothing will, so restart the countdown here.
-        if not self._bot_speaking:
-            self._schedule_idle(self._idle_secs)
+        if self.presentation.resume():
+            await self._speech_gate.resume()
+            # Held speech restarts the normal speaking/idle cycle. If the tutor
+            # was silent, restart the countdown that pausing interrupted; the
+            # longer no-reply wait must not shrink to the idle delay.
+            if not self._bot_speaking:
+                self._schedule_idle(self._paused_delay or self._idle_secs)
+            self._paused_delay = None
         await self._notify(self.snapshot())
 
     async def handle_go_to_slide(self, params: FunctionCallParams) -> None:
@@ -157,16 +162,19 @@ class LessonController(BaseObserver):
 
     def _schedule_idle(self, delay: float) -> None:
         self._cancel_idle()
+        self._idle_delay = delay
         self._idle_task = asyncio.create_task(self._on_idle(delay))
 
     def _cancel_idle(self) -> None:
         if self._idle_task and not self._idle_task.done():
             self._idle_task.cancel()
         self._idle_task = None
+        self._idle_delay = None
 
     async def _on_idle(self, delay: float) -> None:
         await asyncio.sleep(delay)
         self._idle_task = None
+        self._idle_delay = None
         await self._perform(self.presentation.on_bot_idle())
 
     async def _perform(self, action: Action | None) -> None:

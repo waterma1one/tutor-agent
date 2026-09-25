@@ -7,6 +7,7 @@ from pipecat.frames.frames import (
     BotStoppedSpeakingFrame,
     LLMMessagesTransformFrame,
     UserStartedSpeakingFrame,
+    UserStoppedSpeakingFrame,
 )
 from pipecat.observers.base_observer import FramePushed
 from pipecat.processors.frame_processor import FrameDirection
@@ -213,7 +214,7 @@ async def test_user_speech_while_paused_is_ignored():
     assert h.controller.presentation.slide == 2
 
 
-async def test_repeated_pause_and_resume_notify_once():
+async def test_repeated_pause_and_resume_touch_the_gate_once():
     h = Harness()
     await h.controller.start()
     await h.controller.pause()
@@ -221,11 +222,25 @@ async def test_repeated_pause_and_resume_notify_once():
     await h.controller.resume()
     await h.controller.resume()
     assert h.gate.calls == ["pause", "resume"]
-    assert [n["paused"] for n in h.notes[1:]] == [True, False]
+    assert [n["paused"] for n in h.notes[1:]] == [True, True, False, False]
 
 
-async def test_pause_before_start_does_nothing():
+async def test_resume_restarts_the_timer_that_was_pending():
+    h = Harness()
+    h.controller._no_reply_secs = IDLE * 20
+    await h.controller.start()
+    await h.push(UserStartedSpeakingFrame())
+    await h.push(UserStoppedSpeakingFrame())
+    await h.controller.pause()
+    await h.controller.resume()
+    await settle()
+    # The long wait for the tutor's reply survives the pause; the short idle
+    # delay would re-ask the LLM while the first answer is still coming.
+    assert len(h.queued) == 1
+
+
+async def test_ignored_pause_still_reports_state():
     h = Harness()
     await h.controller.pause()
     assert h.gate.calls == []
-    assert h.notes == []
+    assert h.notes == [h.controller.snapshot()]
