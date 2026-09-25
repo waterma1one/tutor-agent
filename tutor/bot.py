@@ -15,7 +15,6 @@ from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
     LLMUserAggregatorParams,
 )
-from pipecat.serializers.protobuf import ProtobufFrameSerializer
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.openai.stt import OpenAIRealtimeSTTService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPIWebsocketTransport
@@ -24,6 +23,7 @@ from tutor import prompts
 from tutor.captions import CaptionedTTSService
 from tutor.controller import LessonController
 from tutor.pause import MuteWhilePaused, PauseGate
+from tutor.serializer import WebClientSerializer
 from tutor.slides import DECK
 
 LLM_MODEL = os.getenv("TUTOR_LLM_MODEL", "gpt-4o")
@@ -67,7 +67,7 @@ async def run_bot(websocket) -> None:
             audio_in_enabled=True,
             audio_out_enabled=True,
             add_wav_header=False,
-            serializer=ProtobufFrameSerializer(),
+            serializer=WebClientSerializer(),
         ),
     )
     stt = OpenAIRealtimeSTTService(
