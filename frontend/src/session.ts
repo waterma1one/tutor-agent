@@ -104,6 +104,11 @@ export class Session {
                 },
                 onBotStoppedSpeaking: () => store.set({ tutorSpeaking: false }),
                 onUserStartedSpeaking: () => {
+                    // The server has already stopped the tutor, but up to half an
+                    // utterance is still queued here; drop it so the answer is not
+                    // stuck behind it.
+                    void interruptPlayback(client);
+                    this.captions.clear();
                     this.tutorLine = null;
                     store.set({ studentSpeaking: true });
                 },
