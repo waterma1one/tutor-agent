@@ -10,6 +10,8 @@ assignment requires: `gpt-4o-transcribe` for speech-to-text, `gpt-4o` for the tu
 `gpt-4o-mini-tts` for the voice. The browser client is plain TypeScript with Vite, using the
 pipecat client SDK over a websocket.
 
+**Demo video:** https://www.loom.com/share/4e5ebe80aa1649b08bc670cc896524e5
+
 ![A class in progress: slide 2 on the left, live captions with a typed question and Terra's answer on the right, slide thumbnails and controls below](docs/screenshots/class.png)
 
 | Landing | Paused | End of class |
