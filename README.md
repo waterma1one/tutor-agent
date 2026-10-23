@@ -1,12 +1,11 @@
-# Terra — a voice tutor for a class on natural disasters
+# Terra: a voice tutor for a class on natural disasters
 
 Terra is a spoken tutor for students aged about 10 to 14. It presents an eight-slide lesson on
 natural disasters out loud, answers questions whenever a student speaks up or types, returns to
 the slide it was on, and finishes with an open question-and-answer session. The lesson can be
 paused mid-sentence and picks up on the same word when resumed.
 
-It is built on [pipecat](https://github.com/pipecat-ai/pipecat) and OpenAI only, as the
-assignment requires: `gpt-4o-transcribe` for speech-to-text, `gpt-4o` for the tutor, and
+It is built on [pipecat](https://github.com/pipecat-ai/pipecat) and OpenAI: `gpt-4o-transcribe` for speech-to-text, `gpt-4o` for the tutor, and
 `gpt-4o-mini-tts` for the voice. The browser client is plain TypeScript with Vite, using the
 pipecat client SDK over a websocket.
 
@@ -196,8 +195,8 @@ Q&A), the controller against fake frames and clocks (frame dedupe, pause and res
 reports, refused requests, the reply timeout, tool-result ordering), the prompts, the pause
 gate, caption timing, and the websocket origin check.
 
-The frontend has no test runner. It is checked by `tsc` and by driving the real modules in
-Playwright against the dev server, with a fake pipecat client where a microphone is needed.
+The frontend has no test runner. It is checked by `tsc` and was checked by hand in a browser with
+Playwright against the dev server; those scripts are not in the repo.
 
 ## Known limits
 
@@ -205,11 +204,11 @@ Playwright against the dev server, with a fake pipecat client where a microphone
   same machine. Proxying the websocket through Vite would fix this, but it changes what the
   `Origin` check sees, so it was left for later.
 - The recent fixes to typed questions and jumps while another request is pending, caption
-  timing after an interruption, and caption scrolling are covered by unit tests and Playwright,
+  timing after an interruption, and caption scrolling are covered by unit tests,
   but have had less testing in a live class than the rest.
 - Two planned features were cut for time: a "raise hand" button, and a short LLM-generated quiz
   in the Q&A.
-- Of the assignment's additional goals, only the child-safety rules in the prompt and the
-  deterministic tests are done. There are no LLM-as-a-judge evals, no knowledge ingestion, no
-  metrics report on disconnect (pipecat's metrics are enabled but not summarised), and old
-  transcripts are downloadable but not yet used to improve the tutor.
+- Beyond the lesson itself, the prompt has child-safety rules and the tests are deterministic.
+  Not built: LLM-as-a-judge evals, knowledge ingestion, a
+  metrics report on disconnect (pipecat's metrics are enabled but not summarised), and using old
+  transcripts to improve the tutor (they are downloadable).
