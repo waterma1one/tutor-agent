@@ -1,5 +1,5 @@
 {
-  "name": "client",
+  "name": "tutor-agent-client",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Browser client for the voice tutor",
   "devDependencies": {
     "@types/node": "^22.15.30",
     "@types/protobufjs": "^6.0.0",
